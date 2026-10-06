@@ -25,11 +25,11 @@
     <div class="header-controls">
       <label for="model-select" style="font-size:0.8rem; color:var(--text-dim);">Model:</label>
       <select id="model-select" class="model-select">
-        <option value="gemini-3.5-flash-lite" selected>Gemini 3.5 Flash Lite (Fast & Active)</option>
+        <option value="gemini-2.5-flash-lite" selected>Gemini 2.5 Flash Lite (High Reliability)</option>
+        <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
+        <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+        <option value="gemini-flash-latest">Gemini Flash Latest</option>
         <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
-        <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
-        <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
       </select>
       <div id="status-badge" class="status-badge">
         <div class="status-dot"></div>
@@ -46,8 +46,11 @@
     <!-- Sidebar: Conversation History & Quick Actions -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <span>💬 History (কথোপকথন রেকর্ড)</span>
-        <button class="new-chat-btn" onclick="createNewChatSession()" title="নতুন কথোপকথন শুরু করুন">➕ New</button>
+        <span>💬 History (রেকর্ড)</span>
+        <div style="display:flex; gap:6px;">
+          <button class="new-chat-btn" onclick="createNewChatSession()" title="নতুন কথোপকথন শুরু করুন">➕ New</button>
+          <button class="clear-all-btn" onclick="clearAllConversations()" title="সব রেকর্ড মুছুন (Clear All)">🗑️ Clear</button>
+        </div>
       </div>
       <div id="conversation-history-list" class="conversation-history-list">
         <!-- Live session items recorded here -->

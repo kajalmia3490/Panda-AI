@@ -302,7 +302,10 @@ function renderConversationHistory() {
     item.className = 'history-item' + (session.id === currentSessionId ? ' active' : '');
     
     item.innerHTML = `
-      <div class="history-title">${escapeHtml(session.title || 'নতুন কথোপকথন')}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+        <div class="history-title" style="flex:1;">${escapeHtml(session.title || 'নতুন কথোপকথন')}</div>
+        <button class="delete-history-btn" title="মুছে ফেলুন (Delete)" onclick="event.stopPropagation(); deleteSession('${session.id}')">🗑️</button>
+      </div>
       <div class="history-meta">
         <span>${session.time || ''}</span>
         <span>${session.messages ? session.messages.length + ' টি বার্তা' : ''}</span>
@@ -312,6 +315,26 @@ function renderConversationHistory() {
     item.onclick = () => loadSession(session.id);
     conversationHistoryList.appendChild(item);
   });
+}
+
+function deleteSession(id) {
+  if (confirm('এই কথোপকথন রেকর্ডটি মুছে ফেলতে চান?')) {
+    sessions = sessions.filter(s => s.id !== id);
+    localStorage.setItem('panda_sessions', JSON.stringify(sessions));
+    if (currentSessionId === id) {
+      createNewChatSession();
+    } else {
+      renderConversationHistory();
+    }
+  }
+}
+
+function clearAllConversations() {
+  if (confirm('সবগুলো কথোপকথন রেকর্ড মুছে ফেলতে চান?')) {
+    sessions = [];
+    localStorage.removeItem('panda_sessions');
+    createNewChatSession();
+  }
 }
 
 function recordMessageToHistory(role, text) {

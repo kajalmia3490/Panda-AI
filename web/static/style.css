@@ -165,9 +165,9 @@ header {
   border: 1px solid rgba(99, 102, 241, 0.4);
   color: #818cf8;
   cursor: pointer;
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   transition: all 0.2s;
 }
@@ -175,6 +175,40 @@ header {
 .new-chat-btn:hover {
   background: var(--primary);
   color: white;
+}
+
+.clear-all-btn {
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  color: #fb7185;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.clear-all-btn:hover {
+  background: var(--accent-rose);
+  color: white;
+}
+
+.delete-history-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  opacity: 0.4;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.delete-history-btn:hover {
+  opacity: 1;
+  background: rgba(244, 63, 94, 0.2);
+  transform: scale(1.15);
 }
 
 .conversation-history-list {
