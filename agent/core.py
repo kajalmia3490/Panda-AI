@@ -339,20 +339,45 @@ class LocalCodingAgent:
         # Prepare tools configuration
         tools_cfg = [{"function_declarations": TOOL_DECLARATIONS}]
 
+        fallback_models = [self.model, "gemini-2.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-lite-latest", "gemini-flash-latest"]
+        # Remove duplicates while keeping order
+        fallback_models = list(dict.fromkeys(fallback_models))
+
         while step < max_steps:
             step += 1
-            try:
-                response = self.client.models.generate_content(
-                    model=self.model,
-                    contents=self.conversation_history,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_INSTRUCTION,
-                        tools=tools_cfg,
-                        temperature=0.3
-                    )
-                )
-            except Exception as e:
-                err_msg = f"API Error: {str(e)}"
+            response = None
+            last_err = None
+
+            # Retry loop across fallback models if 503 or 429 occurs
+            for try_model in fallback_models:
+                retries = 2
+                for attempt in range(retries):
+                    try:
+                        response = self.client.models.generate_content(
+                            model=try_model,
+                            contents=self.conversation_history,
+                            config=types.GenerateContentConfig(
+                                system_instruction=SYSTEM_INSTRUCTION,
+                                tools=tools_cfg,
+                                temperature=0.3
+                            )
+                        )
+                        self.model = try_model  # update active working model
+                        last_err = None
+                        break
+                    except Exception as e:
+                        err_str = str(e)
+                        last_err = err_str
+                        if "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str:
+                            time.sleep(1.2 * (attempt + 1))
+                            continue
+                        else:
+                            break
+                if response:
+                    break
+
+            if not response:
+                err_msg = f"API Error: {last_err or 'Service temporarily unavailable'}"
                 if on_event:
                     on_event({"type": "error", "message": err_msg})
                 return {"success": False, "error": err_msg, "model": self.model}
