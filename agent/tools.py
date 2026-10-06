@@ -177,8 +177,33 @@ def install_windows_app(package_id_or_name: str) -> str:
 
 # --- Complete Windows System Control Tools ---
 
+def bring_window_to_foreground(title_or_class_fragment: str):
+    """Find a window matching title or class fragment and bring it directly to top/foreground."""
+    try:
+        import win32gui
+        import win32con
+        time.sleep(0.6)  # Give app a moment to create its HWND window
+
+        def enum_handler(hwnd, results):
+            if win32gui.IsWindowVisible(hwnd):
+                title = win32gui.GetWindowText(hwnd)
+                if title and title_or_class_fragment.lower() in title.lower():
+                    results.append(hwnd)
+
+        hwnds = []
+        win32gui.EnumWindows(enum_handler, hwnds)
+        if hwnds:
+            target_hwnd = hwnds[0]
+            # Restore if minimized
+            win32gui.ShowWindow(target_hwnd, win32con.SW_RESTORE)
+            # Set to top/foreground
+            win32gui.SetForegroundWindow(target_hwnd)
+            win32gui.BringWindowToTop(target_hwnd)
+    except Exception:
+        pass
+
 def launch_application(app_or_path: str) -> str:
-    """Launch any Windows program, exe, file, or shortcut (e.g. 'notepad', 'calc', 'chrome', 'explorer', 'cmd', or exact file path)."""
+    """Launch any Windows program, exe, file, or shortcut (e.g. 'notepad', 'calc', 'chrome', 'explorer', 'cmd', or exact file path) and bring it to top screen."""
     try:
         import pyautogui
         pyautogui.FAILSAFE = False
@@ -194,25 +219,29 @@ def launch_application(app_or_path: str) -> str:
                 subprocess.Popen(["explorer.exe"], shell=False)
             except Exception:
                 os.system('start explorer.exe')
-            return "Windows File Explorer window physically launched on screen."
+            bring_window_to_foreground("File Explorer")
+            return "Windows File Explorer window physically launched and brought to top screen."
         elif "calc" in app_lower:
             try:
                 subprocess.Popen(["calc.exe"], shell=False)
             except Exception:
                 os.system('start calc.exe')
-            return "Calculator launched directly on screen."
+            bring_window_to_foreground("Calculator")
+            return "Calculator launched directly on top screen."
         elif "notepad" in app_lower:
             try:
                 subprocess.Popen(["notepad.exe"], shell=False)
             except Exception:
                 os.system('start notepad.exe')
-            return "Notepad launched directly on screen."
+            bring_window_to_foreground("Notepad")
+            return "Notepad launched directly on top screen."
         else:
             try:
                 os.startfile(app_or_path)
             except Exception:
                 os.system(f'start "" "{app_or_path}"')
-            return f"Successfully launched '{app_or_path}'."
+            bring_window_to_foreground(app_or_path)
+            return f"Successfully launched '{app_or_path}' on top screen."
     except Exception as e:
         return f"Error opening '{app_or_path}': {str(e)}"
 
