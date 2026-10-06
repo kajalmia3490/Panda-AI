@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panda (প্যান্ডা) | Local Coding AI Agent</title>
+  <!-- Google Fonts: Inter, Noto Sans Bengali, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Markdown parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🐼</div>
+      <div>
+        <span class="brand-title">Panda <span style="font-weight:400; color:var(--text-muted);">(প্যান্ডা)</span></span>
+        <span class="brand-badge">Autonomous AI</span>
+      </div>
+    </div>
+    <div class="header-controls">
+      <label for="model-select" style="font-size:0.8rem; color:var(--text-dim);">Model:</label>
+      <select id="model-select" class="model-select">
+        <option value="gemini-3.5-flash-lite" selected>Gemini 3.5 Flash Lite (Fast & Active)</option>
+        <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+        <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+        <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+      </select>
+      <div id="status-badge" class="status-badge">
+        <div class="status-dot"></div>
+        <span>Connecting...</span>
+      </div>
+      <button id="voice-mute-btn" class="voice-mute-btn" onclick="toggleVoiceMute()" title="Toggle voice response (অডিও উত্তর অন/অফ)">
+        🔊 Voice Reply: ON
+      </button>
+    </div>
+  </header>
+
+  <!-- Main App Layout -->
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span>Workspace Explorer</span>
+        <button class="refresh-btn" onclick="refreshFiles()" title="Refresh workspace">🔄</button>
+      </div>
+      <div id="file-tree" class="file-tree">
+        <div style="padding:10px; color:var(--text-dim);">Loading workspace files...</div>
+      </div>
+
+      <!-- Quick Actions / Prompts -->
+      <div class="sidebar-section">
+        <h4>⚡ Quick Tasks (দ্রুত কাজ)</h4>
+        <button class="quick-action-btn" onclick="quickAction('Hey Panda')">
+          <span>🗣️</span> 'Hey Panda' ওয়েক কল
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('Search and install Google Chrome on this PC using winget')">
+          <span>🌐</span> Install Google Chrome
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('Search and install Git on this PC using winget')">
+          <span>📦</span> Install Git for Windows
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('Search and install VS Code on this PC using winget')">
+          <span>💻</span> Install VS Code
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('Review all Python code in the workspace and identify bugs or improvements. বাংলায় ব্যাখ্যা করো।')">
+          <span>🔍</span> কোড রিভিউ ও বিশ্লেষণ
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('Check git status and workspace health')">
+          <span>🌿</span> গিট ও ওয়ার্কস্পেস স্ট্যাটাস
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Chat View -->
+    <main class="main-chat">
+      <div id="chat-messages" class="chat-messages">
+        <!-- Welcome Message -->
+        <div class="msg-wrapper agent">
+          <div class="msg-header">
+            <span>🐼 Panda (প্যান্ডা)</span> • <span>System</span>
+          </div>
+          <div class="msg-bubble">
+            <h3 style="margin-bottom:8px; color:var(--accent-cyan);">নমস্কার / আসসালামু আলাইকুম! আমি Panda (প্যান্ডা)।</h3>
+            <p style="margin-bottom:8px; color:var(--text-muted);">
+              আমি আপনার নিজস্ব লোকাল কোডিং ও পিসি অ্যাসিস্ট্যান্ট এআই। আমি আপনার কম্পিউটারে সরাসরি কোড লিখতে পারি, অ্যাপ ইনস্টল করতে পারি এবং ভয়েস কমান্ডে কথা বলতে পারি।
+            </p>
+            <p style="font-size:0.85rem; color:var(--accent-cyan); margin-top:6px;">
+              🎙️ <strong>ভয়েস মোড:</strong> নিচের মাইক্রোফোন বাটনে ক্লিক করে <em>"Hey Panda"</em> ডাক দিন — আমি সাথে সাথে ভয়েসে উত্তর দেব: <em>"জী বস! বলুন, আমি আপনার জন্য কী করতে পারি?"</em>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="chat-input-area">
+        <div class="input-box-wrapper">
+          <button id="mic-btn" class="mic-btn" onclick="toggleSpeechRecognition()" title="Voice Command (কথা বলে নির্দেশ দিন)">
+            <span id="mic-icon">🎤</span>
+          </button>
+          <textarea
+            id="user-input"
+            class="chat-input"
+            placeholder="কথা বলুন বা টাইপ করুন (যেমন: 'Hey Panda', 'Install Chrome', 'কোড রিভিউ করো')..."
+            rows="1"
+          ></textarea>
+          <button id="send-btn" class="send-btn">
+            Send <span>↵</span>
+          </button>
+        </div>
+        <div class="input-hints">
+          <span id="voice-status-text">🎤 মাইক্রোফোন বাটনে ক্লিক করে কথা বলুন (বাংলা বা ইংরেজি)</span>
+          <a class="reset-chat-link" onclick="resetChat()">Clear Session</a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
