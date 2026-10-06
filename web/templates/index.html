@@ -43,14 +43,14 @@
 
   <!-- Main App Layout -->
   <div class="app-container">
-    <!-- Sidebar -->
+    <!-- Sidebar: Conversation History & Quick Actions -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <span>Workspace Explorer</span>
-        <button class="refresh-btn" onclick="refreshFiles()" title="Refresh workspace">🔄</button>
+        <span>💬 History (কথোপকথন রেকর্ড)</span>
+        <button class="new-chat-btn" onclick="createNewChatSession()" title="নতুন কথোপকথন শুরু করুন">➕ New</button>
       </div>
-      <div id="file-tree" class="file-tree">
-        <div style="padding:10px; color:var(--text-dim);">Loading workspace files...</div>
+      <div id="conversation-history-list" class="conversation-history-list">
+        <!-- Live session items recorded here -->
       </div>
 
       <!-- Quick Actions / Prompts -->
@@ -73,12 +73,6 @@
         </button>
         <button class="quick-action-btn" onclick="quickAction('Search and install Google Chrome on this PC using winget')">
           <span>🌐</span> Install Google Chrome
-        </button>
-        <button class="quick-action-btn" onclick="quickAction('Review all Python code in the workspace and identify bugs or improvements. বাংলায় ব্যাখ্যা করো।')">
-          <span>🔍</span> কোড রিভিউ ও বিশ্লেষণ
-        </button>
-        <button class="quick-action-btn" onclick="quickAction('Check git status and workspace health')">
-          <span>🌿</span> গিট ও ওয়ার্কস্পেস স্ট্যাটাস
         </button>
       </div>
     </aside>

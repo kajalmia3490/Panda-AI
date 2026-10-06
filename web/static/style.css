@@ -160,44 +160,70 @@ header {
   align-items: center;
 }
 
-.refresh-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
+.new-chat-btn {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #818cf8;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 4px 10px;
   border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s;
 }
 
-.refresh-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-main);
+.new-chat-btn:hover {
+  background: var(--primary);
+  color: white;
 }
 
-.file-tree {
+.conversation-history-list {
   flex: 1;
   overflow-y: auto;
   padding: 8px;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.file-item {
-  padding: 6px 10px;
+.history-item {
+  padding: 10px 12px;
   border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  color: var(--text-main);
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.history-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-color);
+  transform: translateX(2px);
+}
+
+.history-item.active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.history-title {
+  font-size: 0.85rem;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-main);
 }
 
-.file-item:hover {
-  background: var(--bg-hover);
-  color: var(--text-main);
+.history-meta {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
 }
 
 .file-item.dir {

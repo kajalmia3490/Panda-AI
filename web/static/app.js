@@ -13,7 +13,7 @@ const messagesContainer = document.getElementById('chat-messages');
 const userInput = document.getElementById('user-input');
 const sendBtn = document.getElementById('send-btn');
 const modelSelect = document.getElementById('model-select');
-const fileTree = document.getElementById('file-tree');
+const conversationHistoryList = document.getElementById('conversation-history-list');
 const statusBadge = document.getElementById('status-badge');
 const micBtn = document.getElementById('mic-btn');
 const voiceStatusText = document.getElementById('voice-status-text');
@@ -90,6 +90,7 @@ function handleAgentEvent(event) {
       if (event.final_text) {
         updateAgentResponseText(event.final_text);
         speakText(event.final_text);
+        recordMessageToHistory('agent', event.final_text);
       }
       setAgentWorking(false);
       currentAgentMessageDiv = null;
@@ -210,7 +211,7 @@ function appendToolResult(toolName, result) {
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-function appendUserMessage(text) {
+function appendUserMessage(text, record = true) {
   const wrapper = document.createElement('div');
   wrapper.className = 'msg-wrapper user';
 
@@ -228,6 +229,10 @@ function appendUserMessage(text) {
 
   messagesContainer.appendChild(wrapper);
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+  if (record) {
+    recordMessageToHistory('user', text);
+  }
 }
 
 function appendErrorMessage(msg) {
@@ -278,35 +283,87 @@ function setAgentWorking(working) {
   }
 }
 
-async function refreshFiles() {
-  try {
-    const res = await fetch('/api/files');
-    const data = await res.json();
-    fileTree.innerHTML = '';
-    
-    const lines = data.output.split('\n');
-    lines.forEach(line => {
-      if (!line.trim()) return;
-      const div = document.createElement('div');
-      div.className = 'file-item';
-      
-      if (line.startsWith('[DIR]')) {
-        div.classList.add('dir');
-        div.innerHTML = `📁 ${line.replace('[DIR]', '').trim()}`;
-      } else if (line.startsWith('[FILE]')) {
-        div.innerHTML = `📄 ${line.replace('[FILE]', '').trim()}`;
-        div.onclick = () => {
-          const fileName = line.replace('[FILE]', '').split('(')[0].trim();
-          quickAction(`Inspect and explain the file ${fileName}`);
-        };
-      } else {
-        div.textContent = line;
-      }
-      fileTree.appendChild(div);
-    });
-  } catch (err) {
-    fileTree.innerHTML = '<div style="color:var(--accent-rose); padding:8px;">Failed to load files</div>';
+let sessions = JSON.parse(localStorage.getItem('panda_sessions') || '[]');
+let currentSessionId = localStorage.getItem('panda_active_session') || null;
+
+function renderConversationHistory() {
+  if (!conversationHistoryList) return;
+  conversationHistoryList.innerHTML = '';
+
+  if (sessions.length === 0) {
+    conversationHistoryList.innerHTML = '<div style="padding:12px 8px; color:var(--text-dim); font-size:0.8rem; text-align:center;">কোনো পূর্ববর্তী রেকর্ড নেই</div>';
+    return;
   }
+
+  sessions.slice().reverse().forEach((session) => {
+    const item = document.createElement('div');
+    item.className = 'history-item' + (session.id === currentSessionId ? ' active' : '');
+    
+    item.innerHTML = `
+      <div class="history-title">${escapeHtml(session.title || 'নতুন কথোপকথন')}</div>
+      <div class="history-meta">
+        <span>${session.time || ''}</span>
+        <span>${session.messages ? session.messages.length + ' টি বার্তা' : ''}</span>
+      </div>
+    `;
+
+    item.onclick = () => loadSession(session.id);
+    conversationHistoryList.appendChild(item);
+  });
+}
+
+function recordMessageToHistory(role, text) {
+  if (!currentSessionId) {
+    currentSessionId = 'sess_' + Date.now();
+    localStorage.setItem('panda_active_session', currentSessionId);
+    sessions.push({
+      id: currentSessionId,
+      title: text.substring(0, 35) + (text.length > 35 ? '...' : ''),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      messages: []
+    });
+  }
+
+  const session = sessions.find(s => s.id === currentSessionId);
+  if (session) {
+    session.messages.push({ role, text, time: new Date().toLocaleTimeString() });
+    if (session.messages.length === 1 && role === 'user') {
+      session.title = text.substring(0, 35) + (text.length > 35 ? '...' : '');
+    }
+    localStorage.setItem('panda_sessions', JSON.stringify(sessions));
+    renderConversationHistory();
+  }
+}
+
+function loadSession(id) {
+  const session = sessions.find(s => s.id === id);
+  if (!session) return;
+
+  currentSessionId = id;
+  localStorage.setItem('panda_active_session', id);
+  messagesContainer.innerHTML = '';
+
+  (session.messages || []).forEach(msg => {
+    if (msg.role === 'user') {
+      appendUserMessage(msg.text, false);
+    } else {
+      prepareAgentResponseContainer();
+      updateAgentResponseText(msg.text);
+      currentAgentMessageDiv = null;
+    }
+  });
+
+  renderConversationHistory();
+}
+
+function createNewChatSession() {
+  currentSessionId = null;
+  localStorage.removeItem('panda_active_session');
+  messagesContainer.innerHTML = '';
+  if (ws && isConnected) {
+    ws.send(JSON.stringify({ action: 'reset' }));
+  }
+  renderConversationHistory();
 }
 
 function quickAction(promptText) {
@@ -315,9 +372,8 @@ function quickAction(promptText) {
 }
 
 function resetChat() {
-  if (confirm('Clear chat session and reset agent memory?')) {
-    ws.send(JSON.stringify({ action: 'reset' }));
-    messagesContainer.innerHTML = '';
+  if (confirm('কথোপকথন মেমরি রিসেট করবেন?')) {
+    createNewChatSession();
   }
 }
 
@@ -530,7 +586,7 @@ modelSelect.addEventListener('change', () => {
 // Initialize on load
 window.addEventListener('DOMContentLoaded', () => {
   initWebSocket();
-  refreshFiles();
+  renderConversationHistory();
   initSpeechRecognition();
   if ('speechSynthesis' in window) {
     window.speechSynthesis.onvoiceschanged = () => {
