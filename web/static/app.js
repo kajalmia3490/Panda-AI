@@ -7,7 +7,7 @@ let recognition = null;
 let isRecognizing = false;
 let isSpeaking = false;
 let silenceTimer = null;
-const SILENCE_TIMEOUT_MS = 5000; // 5 seconds silence threshold
+const SILENCE_TIMEOUT_MS = 3000; // 3 seconds silence threshold
 
 const messagesContainer = document.getElementById('chat-messages');
 const userInput = document.getElementById('user-input');
@@ -422,26 +422,26 @@ function initSpeechRecognition() {
 
     let interimTranscript = '';
     let finalTranscript = '';
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
+    for (let i = 0; i < event.results.length; ++i) {
       if (event.results[i].isFinal) {
-        finalTranscript += event.results[i][0].transcript;
+        finalTranscript += event.results[i][0].transcript + ' ';
       } else {
         interimTranscript += event.results[i][0].transcript;
       }
     }
 
-    const currentSpeech = (finalTranscript || interimTranscript).trim();
+    const currentSpeech = (finalTranscript + interimTranscript).trim();
     if (currentSpeech) {
-      voiceStatusText.textContent = `🗣️ শুনছি: "${currentSpeech}" (৫ সেকেন্ড পর স্বয়ংক্রিয়ভাবে কাজ শুরু হবে)`;
+      voiceStatusText.textContent = `🗣️ শুনছি: "${currentSpeech}" (৩ সেকেন্ড নিরব থাকলে কাজ শুরু হবে)`;
       userInput.value = currentSpeech;
 
-      // Reset and start 5-second silence timer
+      // Reset and start 3-second silence timer
       clearTimeout(silenceTimer);
       silenceTimer = setTimeout(() => {
-        // 5 seconds elapsed without new speech -> stop listening and execute action
+        // 3 seconds elapsed without new speech -> stop listening and execute action
         const captured = userInput.value.trim();
         if (captured) {
-          voiceStatusText.textContent = `⏳ সময় শেষ! অ্যাকশন নেওয়া হচ্ছে: "${captured}"`;
+          voiceStatusText.textContent = `⏳ ৩ সেকেন্ড পূর্ণ! কাজ শুরু করা হচ্ছে: "${captured}"`;
           if (recognition && isRecognizing) {
             try { recognition.stop(); } catch (e) {}
           }
