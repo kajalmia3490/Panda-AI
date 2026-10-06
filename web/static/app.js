@@ -161,6 +161,13 @@ function appendToolCall(toolName, args) {
   if (toolName === 'write_file') icon = '✍️';
   if (toolName === 'run_command') icon = '💻';
   if (toolName === 'search_in_files') icon = '🔍';
+  if (toolName === 'launch_application') icon = '🚀';
+  if (toolName === 'close_process') icon = '🛑';
+  if (toolName === 'open_url_in_browser') icon = '🌐';
+  if (toolName === 'get_system_status') icon = '📊';
+  if (toolName === 'control_volume') icon = '🔊';
+  if (toolName === 'windows_power_control') icon = '🔌';
+  if (toolName === 'install_windows_app') icon = '📦';
 
   const argsSummary = Object.entries(args || {})
     .map(([k, v]) => {
