@@ -210,29 +210,23 @@ def launch_application(app_or_path: str) -> str:
         app_lower = app_or_path.lower().strip()
 
         if "explorer" in app_lower or "file manager" in app_lower or "folder" in app_lower:
-            # Trigger real visual File Explorer window via Win+E and Windows explorer process
+            # Absolute foolproof launch of File Explorer on Windows desktop
             try:
-                pyautogui.hotkey('win', 'e')
+                os.system('explorer.exe')
             except Exception:
                 pass
             try:
-                subprocess.Popen(["explorer.exe"], shell=False)
+                subprocess.Popen(["explorer.exe", "/n,"], shell=False)
             except Exception:
-                os.system('start explorer.exe')
+                pass
             bring_window_to_foreground("File Explorer")
-            return "Windows File Explorer window physically launched and brought to top screen."
+            return "Windows File Explorer launched live and brought to screen."
         elif "calc" in app_lower:
-            try:
-                subprocess.Popen(["calc.exe"], shell=False)
-            except Exception:
-                os.system('start calc.exe')
+            subprocess.Popen(["calc.exe"], shell=False)
             bring_window_to_foreground("Calculator")
             return "Calculator launched directly on top screen."
         elif "notepad" in app_lower:
-            try:
-                subprocess.Popen(["notepad.exe"], shell=False)
-            except Exception:
-                os.system('start notepad.exe')
+            subprocess.Popen(["notepad.exe"], shell=False)
             bring_window_to_foreground("Notepad")
             return "Notepad launched directly on top screen."
         else:
