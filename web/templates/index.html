@@ -18,8 +18,8 @@
     <div class="brand">
       <div class="brand-icon">🐼</div>
       <div>
-        <span class="brand-title">Panda <span style="font-weight:400; color:var(--text-muted);">(প্যান্ডা)</span></span>
-        <span class="brand-badge">Autonomous AI</span>
+        <span class="brand-title">Panda</span>
+        <span class="brand-badge">AI Assistant</span>
       </div>
     </div>
     <div class="header-controls">
@@ -43,40 +43,17 @@
 
   <!-- Main App Layout -->
   <div class="app-container">
-    <!-- Sidebar: Conversation History & Quick Actions -->
+    <!-- Sidebar: Conversation History -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <span>💬 History (রেকর্ড)</span>
+        <span>Chats</span>
         <div style="display:flex; gap:6px;">
-          <button class="new-chat-btn" onclick="createNewChatSession()" title="নতুন কথোপকথন শুরু করুন">➕ New</button>
-          <button class="clear-all-btn" onclick="clearAllConversations()" title="সব রেকর্ড মুছুন (Clear All)">🗑️ Clear</button>
+          <button class="new-chat-btn" onclick="createNewChatSession()" title="New Chat">➕ New</button>
+          <button class="clear-all-btn" onclick="clearAllConversations()" title="Clear All Chats">🗑️ Clear</button>
         </div>
       </div>
       <div id="conversation-history-list" class="conversation-history-list">
         <!-- Live session items recorded here -->
-      </div>
-
-      <!-- Quick Actions / Prompts -->
-      <div class="sidebar-section">
-        <h4>⚡ Quick Tasks</h4>
-        <button class="quick-action-btn" onclick="quickAction('Hey Panda')">
-          <span>🗣️</span> 'Hey Panda' Wake Call
-        </button>
-        <button class="quick-action-btn" onclick="quickAction('Open File Explorer and start a new project')">
-          <span>📁</span> Open File Explorer & Project
-        </button>
-        <button class="quick-action-btn" onclick="quickAction('Calculator open karo')">
-          <span>🔢</span> Open Calculator
-        </button>
-        <button class="quick-action-btn" onclick="quickAction('Notepad open karo')">
-          <span>📝</span> Open Notepad
-        </button>
-        <button class="quick-action-btn" onclick="quickAction('Check PC CPU, RAM, battery and system status')">
-          <span>📊</span> Check System Status
-        </button>
-        <button class="quick-action-btn" onclick="quickAction('Search and install Google Chrome on this PC using winget')">
-          <span>🌐</span> Install Google Chrome
-        </button>
       </div>
     </aside>
 

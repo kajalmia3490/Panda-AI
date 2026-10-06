@@ -114,7 +114,7 @@ function prepareAgentResponseContainer() {
 
   const header = document.createElement('div');
   header.className = 'msg-header';
-  header.innerHTML = `<span>🐼 Panda (প্যান্ডা)</span> • <span>${new Date().toLocaleTimeString()}</span>`;
+  header.innerHTML = `<span>🐼 Panda</span> • <span>${new Date().toLocaleTimeString()}</span>`;
 
   const bubble = document.createElement('div');
   bubble.className = 'msg-bubble';
