@@ -8,32 +8,31 @@ from google.genai import types
 from agent.config import GEMINI_API_KEY, DEFAULT_MODEL, AGENT_NAME
 from agent.tools import (
     list_files, read_file, write_file, run_command, search_in_files,
-    search_windows_apps, install_windows_app
+    search_windows_apps, install_windows_app, launch_application,
+    close_process, open_url_in_browser, get_system_status,
+    control_volume, windows_power_control
 )
 
-SYSTEM_INSTRUCTION = f"""You are {AGENT_NAME} (প্যান্ডা), an autonomous Local Coding & PC Assistant AI Agent running directly on the user's computer with full PC system access.
+SYSTEM_INSTRUCTION = f"""You are {AGENT_NAME} (প্যান্ডা), an autonomous AI Agent with FULL CONTROL over the user's entire Windows computer system.
 
 Language, Tone & Persona (বাংলাদেশি ভাষা ও ঢং):
 - Speak primarily in natural Bangladeshi Bengali (খাঁটি বাংলাদেশি বাংলা ভাষায় কথা বলুন). Use conversational, respectful, yet friendly tone (যেমন: "জী বস", "হাঁ বস", "একদম ঠিক আছে", "আমি এক্ষুণি করে দিচ্ছি", "কোনো চিন্তা করবেন না").
 - Always address the user respectfully as "বস" (Boss).
 - When the user calls you or says "Hey Panda", "হেই প্যান্ডা", "প্যান্ডা", "Panda", reply naturally:
   "জী বস! বলুন, কী হুকুম? আমি আপনার জন্য কী করতে পারি?"
-- You have full, authorized access to this PC and workspace. You do NOT hesitate or ask repetitive permissions for normal tasks. You take initiative, inspect files, write scripts, run commands, and install apps autonomously.
-- Keep technical terms, code blocks, and package names in English for technical accuracy, but explain everything clearly in Bangladeshi Bengali.
+- The user has granted you FULL WINDOWS PC ACCESS. Whatever the user commands, you execute directly using your comprehensive tools.
+- Do not hesitate, ask repetitive confirmations, or make excuses. Execute the required tool and report the result in cheerful Bangladeshi Bengali.
 
-Autonomous Tools & Capabilities (সম্পূর্ণ পিসি এক্সেস):
-- `list_files(directory)`: Explore workspace directory structure.
-- `read_file(filepath, max_lines)`: Read source code and files.
-- `write_file(filepath, content)`: Create new code files or update existing ones.
-- `run_command(command)`: Execute terminal/PowerShell commands in workspace.
-- `search_in_files(pattern, file_pattern)`: Search codebase for functions or patterns.
-- `search_windows_apps(app_name)`: Search for Windows applications available to install via winget (e.g. Chrome, VS Code, Git, VLC, 7zip, Node.js).
-- `install_windows_app(package_id_or_name)`: Install a Windows application on the PC silently using winget.
-
-Execution Philosophy:
-1. Since the user has given you full PC access, act like a trusted digital engineer.
-2. If the user asks to build something, fix an error, install an app, or run a task, DO IT directly using your tools.
-3. Report back with clear, respectful, and energetic Bangladeshi Bengali updates.
+Complete Windows System Control Tools:
+1. `launch_application(app_or_path)`: Open any app, exe, or folder (Notepad, Calculator, Chrome, Explorer, VS Code, Word, Excel, games, etc.).
+2. `close_process(process_name)`: Terminate/kill any running app (e.g. 'chrome.exe', 'notepad.exe').
+3. `open_url_in_browser(url)`: Open websites in the browser (YouTube, Facebook, Google, GitHub, etc.).
+4. `get_system_status()`: Check live CPU usage, RAM memory, Battery level, and Disk storage.
+5. `control_volume(action)`: Control volume ('mute', 'unmute', 'up', 'down').
+6. `windows_power_control(action)`: PC power actions ('lock', 'sleep', 'restart', 'shutdown').
+7. `search_windows_apps(app_name)` & `install_windows_app(package_id_or_name)`: Search and install any Windows software via winget.
+8. `run_command(command)`: Execute any terminal/PowerShell command on Windows.
+9. `list_files`, `read_file`, `write_file`, `search_in_files`: Complete file system and code manipulation.
 """
 
 TOOL_MAP = {
@@ -44,6 +43,12 @@ TOOL_MAP = {
     "search_in_files": search_in_files,
     "search_windows_apps": search_windows_apps,
     "install_windows_app": install_windows_app,
+    "launch_application": launch_application,
+    "close_process": close_process,
+    "open_url_in_browser": open_url_in_browser,
+    "get_system_status": get_system_status,
+    "control_volume": control_volume,
+    "windows_power_control": windows_power_control,
 }
 
 TOOL_DECLARATIONS = [
@@ -154,6 +159,84 @@ TOOL_DECLARATIONS = [
                 }
             },
             "required": ["package_id_or_name"]
+        }
+    },
+    {
+        "name": "launch_application",
+        "description": "Launch or open any Windows application, file, or executable on the PC (e.g. 'calc', 'notepad', 'chrome', 'explorer', 'code').",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "app_or_path": {
+                    "type": "STRING",
+                    "description": "Application name or path (e.g. 'calc', 'notepad', 'chrome', 'explorer')"
+                }
+            },
+            "required": ["app_or_path"]
+        }
+    },
+    {
+        "name": "close_process",
+        "description": "Close or terminate a running program/process on Windows (e.g. 'notepad.exe', 'chrome.exe').",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "process_name": {
+                    "type": "STRING",
+                    "description": "Process name to terminate (e.g. 'notepad.exe', 'calc.exe', 'chrome.exe')"
+                }
+            },
+            "required": ["process_name"]
+        }
+    },
+    {
+        "name": "open_url_in_browser",
+        "description": "Open a website URL in default browser (e.g. 'https://youtube.com', 'https://google.com').",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "url": {
+                    "type": "STRING",
+                    "description": "URL to open (e.g. 'youtube.com', 'google.com')"
+                }
+            },
+            "required": ["url"]
+        }
+    },
+    {
+        "name": "get_system_status",
+        "description": "Get current Windows system metrics: CPU usage, RAM memory, Battery level, and Disk space.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {}
+        }
+    },
+    {
+        "name": "control_volume",
+        "description": "Control Windows system volume: 'mute', 'unmute', 'up', 'down'.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action": {
+                    "type": "STRING",
+                    "description": "'mute', 'unmute', 'up', or 'down'"
+                }
+            },
+            "required": ["action"]
+        }
+    },
+    {
+        "name": "windows_power_control",
+        "description": "Control PC power state: 'lock', 'sleep', 'restart', or 'shutdown'.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action": {
+                    "type": "STRING",
+                    "description": "'lock', 'sleep', 'restart', or 'shutdown'"
+                }
+            },
+            "required": ["action"]
         }
     }
 ]
