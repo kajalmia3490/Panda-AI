@@ -180,15 +180,26 @@ def install_windows_app(package_id_or_name: str) -> str:
 def launch_application(app_or_path: str) -> str:
     """Launch any Windows program, exe, file, or shortcut (e.g. 'notepad', 'calc', 'chrome', 'explorer', 'cmd', or exact file path)."""
     try:
-        os.startfile(app_or_path)
-        return f"Successfully opened '{app_or_path}'."
+        app_lower = app_or_path.lower().strip()
+        if "explorer" in app_lower or "file manager" in app_lower:
+            # Explicitly launch Windows File Explorer window
+            subprocess.Popen('explorer.exe', shell=True)
+            return "Windows File Explorer window opened directly on desktop."
+        elif "calc" in app_lower:
+            subprocess.Popen('calc.exe', shell=True)
+            return "Calculator opened directly on desktop."
+        elif "notepad" in app_lower:
+            subprocess.Popen('notepad.exe', shell=True)
+            return "Notepad opened directly on desktop."
+        else:
+            try:
+                os.startfile(app_or_path)
+                return f"Successfully opened '{app_or_path}'."
+            except Exception:
+                subprocess.Popen(f'start "" "{app_or_path}"', shell=True)
+                return f"Started '{app_or_path}'."
     except Exception as e:
-        # Fallback to subprocess start
-        try:
-            subprocess.Popen(f'start "" "{app_or_path}"', shell=True)
-            return f"Started '{app_or_path}'."
-        except Exception as ex:
-            return f"Error opening '{app_or_path}': {str(ex)}"
+        return f"Error opening '{app_or_path}': {str(e)}"
 
 def close_process(process_name: str) -> str:
     """Terminate or kill a running application/process by name (e.g. 'chrome.exe', 'notepad.exe', 'calc.exe')."""
@@ -272,6 +283,34 @@ def windows_power_control(action: str) -> str:
     except Exception as e:
         return f"Error executing power action: {str(e)}"
 
+def move_and_click_mouse(x: int = None, y: int = None, clicks: int = 1, button: str = "left") -> str:
+    """Simulate real live mouse movement and clicking on screen. If x and y not provided, clicks at current mouse position."""
+    try:
+        import pyautogui
+        if x is not None and y is not None:
+            # Smoothly glide mouse across screen so user visibly sees the live mouse action
+            pyautogui.moveTo(x, y, duration=0.4)
+        pyautogui.click(clicks=clicks, button=button)
+        pos = pyautogui.position()
+        return f"Mouse moved and clicked at ({pos.x}, {pos.y})."
+    except Exception as e:
+        return f"Error controlling mouse: {str(e)}"
+
+def keyboard_type_and_press(text: str = None, hotkey: str = None) -> str:
+    """Simulate live human keyboard typing or pressing hotkeys (e.g. text='Hello World', hotkey='ctrl+c', 'win+e', 'alt+f4', 'enter')."""
+    try:
+        import pyautogui
+        if hotkey:
+            keys = [k.strip().lower() for k in hotkey.split("+")]
+            pyautogui.hotkey(*keys)
+            return f"Pressed hotkey: {hotkey}."
+        if text:
+            pyautogui.write(text, interval=0.03)
+            return f"Typed text on screen: '{text}'."
+        return "No text or hotkey provided."
+    except Exception as e:
+        return f"Error simulating keyboard: {str(e)}"
+
 AGENT_TOOLS = [
     list_files,
     read_file,
@@ -286,4 +325,6 @@ AGENT_TOOLS = [
     get_system_status,
     control_volume,
     windows_power_control,
+    move_and_click_mouse,
+    keyboard_type_and_press,
 ]

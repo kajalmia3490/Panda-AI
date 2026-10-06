@@ -169,6 +169,8 @@ function appendToolCall(toolName, args) {
   if (toolName === 'control_volume') icon = '🔊';
   if (toolName === 'windows_power_control') icon = '🔌';
   if (toolName === 'install_windows_app') icon = '📦';
+  if (toolName === 'move_and_click_mouse') icon = '🖱️';
+  if (toolName === 'keyboard_type_and_press') icon = '⌨️';
 
   const argsSummary = Object.entries(args || {})
     .map(([k, v]) => {

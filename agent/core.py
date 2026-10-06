@@ -10,29 +10,30 @@ from agent.tools import (
     list_files, read_file, write_file, run_command, search_in_files,
     search_windows_apps, install_windows_app, launch_application,
     close_process, open_url_in_browser, get_system_status,
-    control_volume, windows_power_control
+    control_volume, windows_power_control, move_and_click_mouse,
+    keyboard_type_and_press
 )
 
-SYSTEM_INSTRUCTION = f"""You are {AGENT_NAME} (প্যান্ডা), an autonomous AI Agent with FULL CONTROL over the user's entire Windows computer system.
+SYSTEM_INSTRUCTION = f"""You are {AGENT_NAME} (প্যান্ডা), an autonomous AI Agent with FULL CONTROL over the user's entire Windows computer system, including live mouse and keyboard automation.
 
 Language, Tone & Persona (বাংলাদেশি ভাষা ও ঢং):
 - Speak primarily in natural Bangladeshi Bengali (খাঁটি বাংলাদেশি বাংলা ভাষায় কথা বলুন). Use conversational, respectful, yet friendly tone (যেমন: "জী বস", "হাঁ বস", "একদম ঠিক আছে", "আমি এক্ষুণি করে দিচ্ছি", "কোনো চিন্তা করবেন না").
 - Always address the user respectfully as "বস" (Boss).
 - When the user calls you or says "Hey Panda", "হেই প্যান্ডা", "প্যান্ডা", "Panda", reply naturally:
   "জী বস! বলুন, কী হুকুম? আমি আপনার জন্য কী করতে পারি?"
-- The user has granted you FULL WINDOWS PC ACCESS. Whatever the user commands, you execute directly using your comprehensive tools.
-- Do not hesitate, ask repetitive confirmations, or make excuses. Execute the required tool and report the result in cheerful Bangladeshi Bengali.
+- The user has granted you FULL WINDOWS PC ACCESS. Execute all user commands directly and visibly on screen.
 
 Complete Windows System Control Tools:
-1. `launch_application(app_or_path)`: Open any app, exe, or folder (Notepad, Calculator, Chrome, Explorer, VS Code, Word, Excel, games, etc.).
-2. `close_process(process_name)`: Terminate/kill any running app (e.g. 'chrome.exe', 'notepad.exe').
-3. `open_url_in_browser(url)`: Open websites in the browser (YouTube, Facebook, Google, GitHub, etc.).
-4. `get_system_status()`: Check live CPU usage, RAM memory, Battery level, and Disk storage.
-5. `control_volume(action)`: Control volume ('mute', 'unmute', 'up', 'down').
-6. `windows_power_control(action)`: PC power actions ('lock', 'sleep', 'restart', 'shutdown').
-7. `search_windows_apps(app_name)` & `install_windows_app(package_id_or_name)`: Search and install any Windows software via winget.
-8. `run_command(command)`: Execute any terminal/PowerShell command on Windows.
-9. `list_files`, `read_file`, `write_file`, `search_in_files`: Complete file system and code manipulation.
+1. `launch_application(app_or_path)`: Open any app or folder (Explorer, Notepad, Calculator, Chrome, VS Code, etc.).
+2. `move_and_click_mouse(x, y, clicks, button)`: Visibly move the mouse across screen and click.
+3. `keyboard_type_and_press(text, hotkey)`: Type text or press keys ('win+e' for explorer, 'win', 'enter', 'ctrl+c', etc.).
+4. `close_process(process_name)`: Terminate any running program.
+5. `open_url_in_browser(url)`: Open websites in the browser.
+6. `get_system_status()`: Live CPU, RAM, Battery, and Disk metrics.
+7. `control_volume(action)`: Adjust volume ('mute', 'up', 'down').
+8. `windows_power_control(action)`: PC power actions ('lock', 'sleep', 'restart', 'shutdown').
+9. `search_windows_apps` & `install_windows_app`: Install PC apps via winget.
+10. `run_command`: Terminal / PowerShell command runner.
 """
 
 TOOL_MAP = {
@@ -49,6 +50,8 @@ TOOL_MAP = {
     "get_system_status": get_system_status,
     "control_volume": control_volume,
     "windows_power_control": windows_power_control,
+    "move_and_click_mouse": move_and_click_mouse,
+    "keyboard_type_and_press": keyboard_type_and_press,
 }
 
 TOOL_DECLARATIONS = [
@@ -237,6 +240,48 @@ TOOL_DECLARATIONS = [
                 }
             },
             "required": ["action"]
+        }
+    },
+    {
+        "name": "move_and_click_mouse",
+        "description": "Simulate live mouse movement and click on screen. Smoothly glides across screen.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "x": {
+                    "type": "INTEGER",
+                    "description": "X coordinate on screen (optional)"
+                },
+                "y": {
+                    "type": "INTEGER",
+                    "description": "Y coordinate on screen (optional)"
+                },
+                "clicks": {
+                    "type": "INTEGER",
+                    "description": "Number of clicks (1 or 2)"
+                },
+                "button": {
+                    "type": "STRING",
+                    "description": "'left', 'right', or 'middle'"
+                }
+            }
+        }
+    },
+    {
+        "name": "keyboard_type_and_press",
+        "description": "Simulate live keyboard typing or key combination press (e.g. text='Hello', hotkey='win+e', 'enter', 'ctrl+v').",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "text": {
+                    "type": "STRING",
+                    "description": "Text to type out on screen"
+                },
+                "hotkey": {
+                    "type": "STRING",
+                    "description": "Key or hotkey combination to press (e.g. 'win+e', 'enter', 'alt+tab')"
+                }
+            }
         }
     }
 ]
