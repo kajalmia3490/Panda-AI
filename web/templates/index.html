@@ -58,21 +58,21 @@
 
       <!-- Quick Actions / Prompts -->
       <div class="sidebar-section">
-        <h4>⚡ Quick Tasks (দ্রুত কাজ)</h4>
+        <h4>⚡ Quick Tasks</h4>
         <button class="quick-action-btn" onclick="quickAction('Hey Panda')">
-          <span>🗣️</span> 'Hey Panda' ওয়েক কল
+          <span>🗣️</span> 'Hey Panda' Wake Call
         </button>
-        <button class="quick-action-btn" onclick="quickAction('বস ফাইল এক্সপ্লোরার ওপেন করো')">
-          <span>📁</span> ফাইল এক্সপ্লোরার ওপেন
+        <button class="quick-action-btn" onclick="quickAction('Open File Explorer and start a new project')">
+          <span>📁</span> Open File Explorer & Project
         </button>
-        <button class="quick-action-btn" onclick="quickAction('বস ক্যালকুলেটর ওপেন করো')">
-          <span>🔢</span> ক্যালকুলেটর ওপেন
+        <button class="quick-action-btn" onclick="quickAction('Calculator open karo')">
+          <span>🔢</span> Open Calculator
         </button>
-        <button class="quick-action-btn" onclick="quickAction('বস নোটপ্যাড ওপেন করো')">
-          <span>📝</span> নোটপ্যাড ওপেন
+        <button class="quick-action-btn" onclick="quickAction('Notepad open karo')">
+          <span>📝</span> Open Notepad
         </button>
-        <button class="quick-action-btn" onclick="quickAction('পিসির সিপিইউ, র‍্যাম ও ব্যাটারি স্ট্যাটাস চেক করো')">
-          <span>📊</span> সিস্টেম স্ট্যাটাস চেক
+        <button class="quick-action-btn" onclick="quickAction('Check PC CPU, RAM, battery and system status')">
+          <span>📊</span> Check System Status
         </button>
         <button class="quick-action-btn" onclick="quickAction('Search and install Google Chrome on this PC using winget')">
           <span>🌐</span> Install Google Chrome
@@ -87,13 +87,13 @@
       <!-- Input Area -->
       <div class="chat-input-area">
         <div class="input-box-wrapper">
-          <button id="mic-btn" class="mic-btn" onclick="toggleSpeechRecognition()" title="Voice Command (কথা বলে নির্দেশ দিন)">
+          <button id="mic-btn" class="mic-btn" onclick="toggleSpeechRecognition()" title="Voice Command (Speak in English or Hindi)">
             <span id="mic-icon">🎤</span>
           </button>
           <textarea
             id="user-input"
             class="chat-input"
-            placeholder="কথা বলুন বা টাইপ করুন (যেমন: 'Hey Panda', 'Install Chrome', 'কোড রিভিউ করো')..."
+            placeholder="Type or speak (e.g. 'Hey Panda', 'File Explorer open karo', 'Install Chrome')..."
             rows="1"
           ></textarea>
           <button id="send-btn" class="send-btn">
@@ -101,7 +101,7 @@
           </button>
         </div>
         <div class="input-hints">
-          <span id="voice-status-text">🎤 মাইক্রোফোন বাটনে ক্লিক করে কথা বলুন (বাংলা বা ইংরেজি)</span>
+          <span id="voice-status-text">🎤 Click microphone to speak (English or Hindi)</span>
           <a class="reset-chat-link" onclick="resetChat()">Clear Session</a>
         </div>
       </div>

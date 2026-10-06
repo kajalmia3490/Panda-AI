@@ -434,11 +434,18 @@ function speakText(text) {
   utterance.rate = 1.0;
   utterance.pitch = 1.0;
 
-  // Pick appropriate voice (prefer Bengali or natural female/male voice)
+  // Pick appropriate voice (prefer Hindi or English)
   const voices = window.speechSynthesis.getVoices();
-  const bnVoice = voices.find(v => v.lang.includes('bn') || v.lang.includes('BD') || v.lang.includes('IN'));
-  if (bnVoice) {
-    utterance.voice = bnVoice;
+  const isHindiText = /[\u0900-\u097F]/.test(cleanText);
+  let chosenVoice = null;
+  if (isHindiText) {
+    chosenVoice = voices.find(v => v.lang.includes('hi') || v.lang.includes('HI'));
+  }
+  if (!chosenVoice) {
+    chosenVoice = voices.find(v => v.lang.includes('en') || v.lang.includes('US') || v.lang.includes('IN'));
+  }
+  if (chosenVoice) {
+    utterance.voice = chosenVoice;
   }
 
   isSpeaking = true;
@@ -475,7 +482,7 @@ function toggleVoiceMute() {
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    voiceStatusText.textContent = '⚠️ আপনার ব্রাউজারে স্পিচ রিকগনিশন সাপোর্ট নেই (Chrome বা Edge ব্যবহার করুন)';
+    voiceStatusText.textContent = '⚠️ Speech Recognition not supported in this browser (Use Chrome or Edge)';
     if (micBtn) micBtn.style.display = 'none';
     return;
   }
@@ -520,7 +527,7 @@ function initSpeechRecognition() {
 
     const currentSpeech = (finalTranscript + interimTranscript).trim();
     if (currentSpeech) {
-      voiceStatusText.textContent = `🗣️ শুনছি: "${currentSpeech}" (৩ সেকেন্ড নিরব থাকলে কাজ শুরু হবে)`;
+      voiceStatusText.textContent = `🗣️ Listening: "${currentSpeech}" (Wait 3s of silence to execute)`;
       userInput.value = currentSpeech;
 
       // Reset and start 3-second silence timer
@@ -529,7 +536,7 @@ function initSpeechRecognition() {
         // 3 seconds elapsed without new speech -> stop listening and execute action
         const captured = userInput.value.trim();
         if (captured) {
-          voiceStatusText.textContent = `⏳ ৩ সেকেন্ড পূর্ণ! কাজ শুরু করা হচ্ছে: "${captured}"`;
+          voiceStatusText.textContent = `⏳ 3s completed! Executing command: "${captured}"`;
           if (recognition && isRecognizing) {
             try { recognition.stop(); } catch (e) {}
           }
@@ -563,18 +570,22 @@ function handleSpokenCommand(transcript) {
   clearTimeout(silenceTimer);
   const lower = transcript.toLowerCase().trim();
 
-  // Wake-word only detection: e.g. "hey panda", "panda", "হেই প্যান্ডা"
+  // Wake-word only detection: e.g. "hey panda", "panda", "hello panda"
   const isWakeWordOnly = 
     lower === 'hey panda' || 
     lower === 'panda' || 
     lower === 'hello panda' || 
-    lower === 'hey' || 
-    transcript.trim() === 'হেই প্যান্ডা' || 
-    transcript.trim() === 'প্যান্ডা';
+    lower === 'hey' ||
+    lower === 'हे पांडा' ||
+    lower === 'पांडा';
 
   if (isWakeWordOnly) {
-    // Instant wake-word response in voice and chat
-    const wakeReply = 'জী বস! বলুন, আমি আপনার জন্য কী করতে পারি?';
+    // Instant wake-word response in English / Hindi
+    const isHindiUser = /[\u0900-\u097F]/.test(transcript);
+    const wakeReply = isHindiUser
+      ? 'जी बॉस! बताइए, मैं आपके लिए क्या कर सकता हूँ?'
+      : 'Yes Boss! How can I assist you right now?';
+
     appendUserMessage(transcript);
     
     // Add agent response
