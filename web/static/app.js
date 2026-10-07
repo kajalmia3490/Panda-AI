@@ -104,8 +104,10 @@ function initWebSocket() {
 }
 
 function updateStatus(text, ok) {
-  const dot = statusBadge.querySelector('.status-dot');
-  const span = statusBadge.querySelector('span');
+  const badge = statusBadge || document.getElementById('status-badge');
+  if (!badge) return;
+  const dot = badge.querySelector('.status-dot');
+  const span = badge.querySelector('span');
   if (span) span.textContent = text;
   if (dot) {
     dot.style.background = ok ? 'var(--accent-emerald)' : 'var(--accent-rose)';
@@ -596,7 +598,7 @@ function loadSession(id) {
 
   (session.messages || []).forEach(msg => {
     if (msg.role === 'user') {
-      appendUserMessage(msg.text, false);
+      appendUserMessage(msg.text, [], false);
     } else {
       prepareAgentResponseContainer();
       updateAgentResponseText(msg.text);
@@ -919,18 +921,6 @@ function handleSpokenCommand(transcript) {
     updateAgentResponseText(wakeReply);
     speakText(wakeReply);
     currentAgentMessageDiv = null;
-    return;
-  }
-
-    appendUserMessage(transcript);
-    userInput.value = '';
-    
-    // Add agent response
-    prepareAgentResponseContainer();
-    updateAgentResponseText(wakeReply);
-    speakText(wakeReply);
-    currentAgentMessageDiv = null;
-    return;
   }
 
   // If command includes wake word like "Hey Panda install chrome" or direct command
@@ -966,8 +956,7 @@ modelSelect.addEventListener('change', () => {
   });
 });
 
-// Initialize on load
-window.addEventListener('DOMContentLoaded', () => {
+function initApp() {
   initSidebarState();
   initWebSocket();
   renderConversationHistory();
@@ -980,18 +969,12 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }, 400);
 
-  // Populate voice selector & Pre-load voices immediately
+  // Pre-load voices immediately
   if ('speechSynthesis' in window) {
     populateVoiceList();
     window.speechSynthesis.onvoiceschanged = () => {
       populateVoiceList();
     };
-  }
-
-  if (voiceSelect) {
-    voiceSelect.addEventListener('change', () => {
-      localStorage.setItem('panda_preferred_voice', voiceSelect.value);
-    });
   }
 
   // Attach button click
@@ -1031,4 +1014,10 @@ window.addEventListener('DOMContentLoaded', () => {
     document.removeEventListener('click', unlockAudio);
   };
   document.addEventListener('click', unlockAudio);
-});
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
