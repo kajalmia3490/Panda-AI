@@ -479,6 +479,69 @@ header {
   margin-bottom: 10px;
 }
 
+/* Code Copy Button */
+.code-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(30, 30, 30, 0.85);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border-color);
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.code-copy-btn:hover {
+  background: var(--bg-hover);
+  color: #fff;
+  border-color: var(--border-focus);
+}
+
+.code-copy-btn.copied {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: var(--accent-emerald);
+  color: var(--accent-emerald);
+}
+
+/* Link Copy Button */
+.link-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  padding: 2px 5px;
+  margin-left: 5px;
+  margin-right: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: all 0.2s ease;
+}
+
+.link-copy-btn:hover {
+  background: var(--claude-accent-soft);
+  color: var(--claude-accent);
+  border-color: rgba(204, 120, 92, 0.4);
+}
+
+.link-copy-btn.copied {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--accent-emerald);
+  border-color: var(--accent-emerald);
+}
+
 /* Live Tool Activity Stream */
 .tool-pill {
   display: flex;

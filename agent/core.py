@@ -13,7 +13,8 @@ from agent.tools import (
     close_process, open_url_in_browser, get_system_status,
     control_volume, windows_power_control, move_and_click_mouse,
     keyboard_type_and_press, capture_screenshot, list_open_windows,
-    get_clipboard_content, set_clipboard_content
+    get_clipboard_content, set_clipboard_content,
+    live_browser_open, live_browser_interact, live_browser_close
 )
 
 SYSTEM_INSTRUCTION = f"""You are {AGENT_NAME} (প্যান্ডা), an autonomous AI PC and Developer Agent with full control over the user's live Windows computer, operating exactly like an expert human software engineer sitting directly in front of the PC with mouse, keyboard, terminal, code editor, and browser.
@@ -48,15 +49,15 @@ Language & Communication Rules (ভাষা এবং যোগাযোগ ন
   * In Hindi: "जी बॉस! बताइए, मैं आपके लिए क्या कर सकता हूँ?"
 
 CRITICAL ACTION RULES:
-1. **ACTION FIRST, LIVE ON SCREEN**: When the user gives a command, execute the real action immediately on screen using the tools.
-2. **BROWSER & APP VISUALIZATION RULE (সরাসরি ভিজ্যুয়ালাইজ করে দেখানো)**:
-   - When the user asks to open the browser (e.g. YouTube, Google, GitHub, or any website) or launch any application (e.g. VS Code, Notepad, File Explorer, Calculator):
-     * Step 1: Immediately launch or open the requested website or application using `open_url_in_browser` or `launch_application`.
-     * Step 2: Call `capture_screenshot()` right after opening/interacting so the live desktop and browser view is physically captured and shown in the user's dashboard timeline as a visual preview!
-     * Step 3: Perform whatever activities the user asked for (search, click, type) and capture screenshot to verify and visualize the end result.
+1. **ACTION FIRST, DIRECTLY LIVE ON SCREEN (বাস্তব স্ক্রিনে সরাসরি কাজ করা)**:
+   - When the user asks to open a website, application, or perform an activity (e.g. "open youtube and search lofi music", "browse news"):
+     * Prefer `live_browser_open(url)` to launch a live, visible Chromium browser on the desktop (`headless=False`).
+     * Then immediately use `live_browser_interact(action="search", text="...")` or `live_browser_interact(action="click", selector="...")` to perform live actions directly.
+     * The user will literally watch the browser open on their screen, type the search query, and play/open the requested content in real-time.
+2. **NO UNWANTED SCREENSHOTS**:
+   - Do NOT take screenshots repeatedly or unprompted. Only use `capture_screenshot` when the user explicitly asks for a screenshot ("screenshot dao", "screen dekhao", etc.) or if you need to visually debug an unknown UI error.
 3. When asked to code, debug, create projects, or control apps:
    - Perform all terminal commands, file creations, and application launches directly.
-   - Proactively inspect screen with `capture_screenshot()` or terminal output to verify success.
 """
 
 TOOL_MAP = {
@@ -79,6 +80,9 @@ TOOL_MAP = {
     "list_open_windows": list_open_windows,
     "get_clipboard_content": get_clipboard_content,
     "set_clipboard_content": set_clipboard_content,
+    "live_browser_open": live_browser_open,
+    "live_browser_interact": live_browser_interact,
+    "live_browser_close": live_browser_close,
 }
 
 TOOL_DECLARATIONS = [
@@ -352,6 +356,50 @@ TOOL_DECLARATIONS = [
                 }
             },
             "required": ["text"]
+        }
+    },
+    {
+        "name": "live_browser_open",
+        "description": "Open an interactive Chromium web browser window visibly (headless=False) on screen and navigate to any URL (e.g. 'https://youtube.com', 'https://google.com').",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "url": {
+                    "type": "STRING",
+                    "description": "URL of the website to open live on screen"
+                }
+            },
+            "required": ["url"]
+        }
+    },
+    {
+        "name": "live_browser_interact",
+        "description": "Perform live interactive browsing actions in the visible browser on screen: 'search' (searches automatically on YouTube/Google), 'click' (clicks on css selector), 'type' (fills text input), 'scroll_down', 'press' (presses Enter), or 'content' (reads page text).",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action": {
+                    "type": "STRING",
+                    "description": "'search', 'click', 'type', 'press', 'scroll_down', 'scroll_up', or 'content'"
+                },
+                "selector": {
+                    "type": "STRING",
+                    "description": "CSS selector for click/type (optional)"
+                },
+                "text": {
+                    "type": "STRING",
+                    "description": "Search keyword or text to type"
+                }
+            },
+            "required": ["action"]
+        }
+    },
+    {
+        "name": "live_browser_close",
+        "description": "Close the active visible Playwright browser window.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {}
         }
     }
 ]

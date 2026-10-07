@@ -203,6 +203,71 @@ function updateAgentResponseText(markdownText) {
   } else {
     textNode.textContent = markdownText;
   }
+
+  // Attach interactive Copy Buttons to all code blocks
+  textNode.querySelectorAll('pre').forEach((pre) => {
+    if (pre.querySelector('.code-copy-btn')) return; // already added
+
+    pre.style.position = 'relative';
+    const codeEl = pre.querySelector('code');
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'code-copy-btn';
+    copyBtn.type = 'button';
+    copyBtn.title = 'কোড কপি করুন (Copy code)';
+    copyBtn.innerHTML = '📋 <span>Copy</span>';
+
+    copyBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const codeText = codeEl ? codeEl.innerText : pre.innerText;
+      try {
+        await navigator.clipboard.writeText(codeText);
+        copyBtn.innerHTML = '✓ <span>Copied!</span>';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.innerHTML = '📋 <span>Copy</span>';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        console.warn('Clipboard copy failed:', err);
+      }
+    });
+
+    pre.appendChild(copyBtn);
+  });
+
+  // Attach interactive Copy Buttons / Badges to all links
+  textNode.querySelectorAll('a').forEach((link) => {
+    if (link.dataset.copyEnhanced) return;
+    link.dataset.copyEnhanced = 'true';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+
+    // Create a mini copy button next to the link
+    const copyLinkBtn = document.createElement('button');
+    copyLinkBtn.className = 'link-copy-btn';
+    copyLinkBtn.type = 'button';
+    copyLinkBtn.title = 'লিঙ্ক কপি করুন (Copy URL)';
+    copyLinkBtn.innerHTML = '🔗';
+
+    copyLinkBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(link.href);
+        copyLinkBtn.innerHTML = '✓';
+        copyLinkBtn.classList.add('copied');
+        setTimeout(() => {
+          copyLinkBtn.innerHTML = '🔗';
+          copyLinkBtn.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        console.warn('Link copy failed:', err);
+      }
+    });
+
+    link.insertAdjacentElement('afterend', copyLinkBtn);
+  });
+
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
@@ -232,6 +297,9 @@ function appendToolCall(toolName, args) {
   if (toolName === 'list_open_windows') icon = '🪟';
   if (toolName === 'get_clipboard_content') icon = '📋';
   if (toolName === 'set_clipboard_content') icon = '📋';
+  if (toolName === 'live_browser_open') icon = '🌐';
+  if (toolName === 'live_browser_interact') icon = '🎯';
+  if (toolName === 'live_browser_close') icon = '🛑';
 
   const argsSummary = Object.entries(args || {})
     .map(([k, v]) => {

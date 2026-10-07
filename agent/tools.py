@@ -194,9 +194,12 @@ def bring_window_to_foreground(title_or_class_fragment: str):
     """Find a window matching title or class fragment and bring it directly to top/foreground."""
     try:
         ensure_desktop_access()
+        import ctypes
         import win32gui
         import win32con
-        time.sleep(0.4)
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        time.sleep(0.5)
 
         def enum_handler(hwnd, results):
             if win32gui.IsWindowVisible(hwnd):
@@ -208,9 +211,29 @@ def bring_window_to_foreground(title_or_class_fragment: str):
         win32gui.EnumWindows(enum_handler, hwnds)
         if hwnds:
             target_hwnd = hwnds[0]
-            win32gui.ShowWindow(target_hwnd, win32con.SW_RESTORE)
-            win32gui.SetForegroundWindow(target_hwnd)
-            win32gui.BringWindowToTop(target_hwnd)
+            # Bypass Windows SetForegroundWindow lock by simulating ALT key and attaching threads
+            try:
+                user32.keybd_event(0x12, 0, 0, 0)
+                user32.keybd_event(0x12, 0, 2, 0)
+                curr_tid = kernel32.GetCurrentThreadId()
+                fore_hwnd = user32.GetForegroundWindow()
+                fore_tid = user32.GetWindowThreadProcessId(fore_hwnd, None)
+                target_tid = user32.GetWindowThreadProcessId(target_hwnd, None)
+
+                user32.AttachThreadInput(curr_tid, target_tid, True)
+                if fore_tid:
+                    user32.AttachThreadInput(fore_tid, target_tid, True)
+
+                user32.ShowWindow(target_hwnd, win32con.SW_RESTORE)
+                user32.SetForegroundWindow(target_hwnd)
+                user32.BringWindowToTop(target_hwnd)
+
+                user32.AttachThreadInput(curr_tid, target_tid, False)
+                if fore_tid:
+                    user32.AttachThreadInput(fore_tid, target_tid, False)
+            except Exception:
+                win32gui.ShowWindow(target_hwnd, win32con.SW_RESTORE)
+                win32gui.SetForegroundWindow(target_hwnd)
             return True
     except Exception:
         pass
@@ -288,19 +311,15 @@ def open_url_in_browser(url: str) -> str:
             except Exception:
                 webbrowser.open_new(url)
 
-        # Bring browser window to top
+        # Bring browser window to top immediately
         time.sleep(1.0)
         bring_window_to_foreground("Chrome")
         bring_window_to_foreground("YouTube")
         bring_window_to_foreground("Edge")
         bring_window_to_foreground("Browser")
 
-        # Auto capture visual screenshot of the opened browser so user sees it right in chat
-        screenshot_res = capture_screenshot("current_screen.png")
-
-        return f"Successfully opened {url} in browser on screen. {screenshot_res}"
+        return f"Successfully opened {url} live on screen in browser."
     except Exception as e:
-        return f"Error opening browser URL: {str(e)}"
         return f"Error opening browser URL: {str(e)}"
 
 def get_system_status() -> str:
@@ -457,6 +476,125 @@ def set_clipboard_content(text: str) -> str:
     except Exception as e:
         return f"Error copying to clipboard: {str(e)}"
 
+# --- Live Browser Automation (Playwright GUI on Screen) ---
+_LIVE_PLAYWRIGHT = None
+_LIVE_BROWSER = None
+_LIVE_PAGE = None
+
+def live_browser_open(url: str) -> str:
+    """Open an interactive Chromium browser window visibly (headless=False) on screen and navigate to a URL."""
+    global _LIVE_PLAYWRIGHT, _LIVE_BROWSER, _LIVE_PAGE
+    try:
+        ensure_desktop_access()
+        if not url.startswith("http://") and not url.startswith("https://"):
+            url = "https://" + url
+
+        from playwright.sync_api import sync_playwright
+        if _LIVE_BROWSER is None or _LIVE_PAGE is None or _LIVE_PAGE.is_closed():
+            if _LIVE_PLAYWRIGHT is None:
+                _LIVE_PLAYWRIGHT = sync_playwright().start()
+            _LIVE_BROWSER = _LIVE_PLAYWRIGHT.chromium.launch(
+                headless=False,
+                slow_mo=500,
+                args=["--start-maximized", "--disable-blink-features=AutomationControlled"]
+            )
+            context = _LIVE_BROWSER.new_context(no_viewport=True)
+            _LIVE_PAGE = context.new_page()
+
+        _LIVE_PAGE.goto(url, timeout=30000, wait_until="domcontentloaded")
+        bring_window_to_foreground("Chromium")
+        bring_window_to_foreground("Chrome")
+
+        title = _LIVE_PAGE.title()
+        return f"Live browser opened on screen. Navigated to {url}. Page title: '{title}'."
+    except Exception as e:
+        return f"Error opening live browser: {str(e)}"
+
+def live_browser_interact(action: str, selector: str = None, text: str = None) -> str:
+    """Perform a live action on the open browser page (e.g. action='click', 'type', 'press', 'search', 'scroll') visibly on screen."""
+    global _LIVE_PAGE
+    if _LIVE_PAGE is None or _LIVE_PAGE.is_closed():
+        return "Live browser is not open. Please call live_browser_open(url) first."
+
+    try:
+        ensure_desktop_access()
+        action = action.lower().strip()
+
+        if action in ["click", "press_button"]:
+            if selector:
+                _LIVE_PAGE.click(selector, timeout=8000)
+                return f"Clicked on element matching '{selector}'."
+            return "Error: Selector is required for click action."
+
+        elif action in ["type", "fill", "write"]:
+            if selector and text:
+                _LIVE_PAGE.fill(selector, text, timeout=8000)
+                return f"Typed '{text}' into '{selector}'."
+            elif text:
+                _LIVE_PAGE.keyboard.type(text, delay=50)
+                return f"Typed text '{text}' on current focus."
+            return "Error: Text is required for type action."
+
+        elif action in ["search"]:
+            # Auto find search input on Google, YouTube, DuckDuckGo, etc.
+            search_selectors = [
+                "input[name='search_query']", "input[name='q']", "input[type='search']",
+                "input[placeholder*='Search' i]", "input[placeholder*='search' i]", "input[aria-label*='Search' i]",
+                "input"
+            ]
+            for s in search_selectors:
+                try:
+                    if _LIVE_PAGE.locator(s).first.is_visible():
+                        _LIVE_PAGE.fill(s, text or "")
+                        _LIVE_PAGE.press(s, "Enter")
+                        time.sleep(1.5)
+                        return f"Searched for '{text}' on page using '{s}'."
+                except Exception:
+                    continue
+            if text:
+                _LIVE_PAGE.keyboard.type(text, delay=50)
+                _LIVE_PAGE.keyboard.press("Enter")
+                return f"Typed '{text}' and pressed Enter."
+            return "Could not locate search field on current page."
+
+        elif action in ["press", "key"]:
+            key = text or "Enter"
+            _LIVE_PAGE.keyboard.press(key)
+            return f"Pressed keyboard key '{key}' on page."
+
+        elif action in ["scroll_down", "scroll"]:
+            _LIVE_PAGE.evaluate("window.scrollBy(0, 600)")
+            return "Scrolled down 600px on page."
+
+        elif action in ["scroll_up"]:
+            _LIVE_PAGE.evaluate("window.scrollBy(0, -600)")
+            return "Scrolled up 600px on page."
+
+        elif action in ["content", "read_text"]:
+            text_snippet = _LIVE_PAGE.inner_text("body")[:1000]
+            return f"Page Text Content:\n{text_snippet}"
+
+        return f"Unknown browser action: '{action}'. Use 'click', 'type', 'search', 'press', 'scroll_down', or 'content'."
+    except Exception as e:
+        return f"Error executing browser action '{action}': {str(e)}"
+
+def live_browser_close() -> str:
+    """Close the active live Playwright browser window."""
+    global _LIVE_PLAYWRIGHT, _LIVE_BROWSER, _LIVE_PAGE
+    try:
+        if _LIVE_PAGE and not _LIVE_PAGE.is_closed():
+            _LIVE_PAGE.close()
+        if _LIVE_BROWSER:
+            _LIVE_BROWSER.close()
+        if _LIVE_PLAYWRIGHT:
+            _LIVE_PLAYWRIGHT.stop()
+        _LIVE_PAGE = None
+        _LIVE_BROWSER = None
+        _LIVE_PLAYWRIGHT = None
+        return "Live browser closed successfully."
+    except Exception as e:
+        return f"Error closing live browser: {str(e)}"
+
 AGENT_TOOLS = [
     list_files,
     read_file,
@@ -477,4 +615,7 @@ AGENT_TOOLS = [
     list_open_windows,
     get_clipboard_content,
     set_clipboard_content,
+    live_browser_open,
+    live_browser_interact,
+    live_browser_close,
 ]
