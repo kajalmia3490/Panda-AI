@@ -239,6 +239,43 @@ def bring_window_to_foreground(title_or_class_fragment: str):
         pass
     return False
 
+def get_installed_applications(filter_keyword: str = "") -> str:
+    """Scan and list all installed applications, desktop software, and .exe tools on this Windows PC (scans Program Files, LocalAppData, and Start Menu)."""
+    try:
+        paths = [
+            os.environ.get('ProgramFiles', r'C:\Program Files'),
+            os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
+            os.path.expandvars(r'%LOCALAPPDATA%\Programs'),
+            os.path.expandvars(r'%APPDATA%\Microsoft\Windows\Start Menu\Programs'),
+            r'C:\ProgramData\Microsoft\Windows\Start Menu\Programs'
+        ]
+        found_apps = {}
+        for p in paths:
+            if os.path.exists(p):
+                for root, _, files in os.walk(p):
+                    for f in files:
+                        if f.lower().endswith(('.exe', '.lnk')):
+                            # Skip uninstaller and helper updater files
+                            if any(skip in f.lower() for skip in ['unins', 'update', 'installer', 'helper', 'crash']):
+                                continue
+                            app_name = os.path.splitext(f)[0]
+                            full_path = os.path.join(root, f)
+                            if app_name.lower() not in found_apps:
+                                found_apps[app_name.lower()] = (app_name, full_path)
+
+        if filter_keyword:
+            filtered = [item for k, item in found_apps.items() if filter_keyword.lower() in k]
+        else:
+            filtered = list(found_apps.values())
+
+        if not filtered:
+            return f"No installed applications found matching '{filter_keyword}'."
+
+        result_lines = [f"- {name}: {path}" for name, path in filtered[:60]]
+        return f"Found {len(filtered)} installed application(s):\n" + "\n".join(result_lines)
+    except Exception as e:
+        return f"Error scanning installed applications: {str(e)}"
+
 def launch_application(app_or_path: str) -> str:
     """Launch any Windows program, exe, file, or shortcut (e.g. 'notepad', 'calc', 'chrome', 'explorer', 'cmd', or exact file path) and bring it to top screen."""
     try:
@@ -267,12 +304,52 @@ def launch_application(app_or_path: str) -> str:
             bring_window_to_foreground("Notepad")
             return "Notepad launched directly on top screen."
         else:
+            # 1. If it's an exact existing file path
+            if os.path.exists(app_or_path):
+                try:
+                    os.startfile(app_or_path)
+                except Exception:
+                    subprocess.Popen([app_or_path], shell=False)
+                bring_window_to_foreground(os.path.basename(app_or_path))
+                return f"Successfully launched '{app_or_path}' on top screen."
+
+            # 2. Search dynamically across Program Files and Start Menu shortcuts
+            search_paths = [
+                os.environ.get('ProgramFiles', r'C:\Program Files'),
+                os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'),
+                os.path.expandvars(r'%LOCALAPPDATA%\Programs'),
+                os.path.expandvars(r'%APPDATA%\Microsoft\Windows\Start Menu\Programs'),
+                r'C:\ProgramData\Microsoft\Windows\Start Menu\Programs'
+            ]
+            matched_exe = None
+            for sp in search_paths:
+                if os.path.exists(sp):
+                    for root, _, files in os.walk(sp):
+                        for f in files:
+                            name_no_ext = os.path.splitext(f)[0].lower()
+                            if f.lower().endswith(('.exe', '.lnk')) and app_lower in name_no_ext:
+                                matched_exe = os.path.join(root, f)
+                                break
+                        if matched_exe:
+                            break
+                if matched_exe:
+                    break
+
+            if matched_exe:
+                try:
+                    os.startfile(matched_exe)
+                except Exception:
+                    subprocess.Popen([matched_exe], shell=False)
+                bring_window_to_foreground(app_lower)
+                return f"Successfully found and launched '{os.path.basename(matched_exe)}' ({matched_exe}) on top screen."
+
+            # 3. Fallback to windows system start
             try:
                 os.startfile(app_or_path)
             except Exception:
                 os.system(f'start "" "{app_or_path}"')
             bring_window_to_foreground(app_or_path)
-            return f"Successfully launched '{app_or_path}' on top screen."
+            return f"Successfully executed start command for '{app_or_path}'."
     except Exception as e:
         return f"Error opening '{app_or_path}': {str(e)}"
 
@@ -294,7 +371,34 @@ def open_url_in_browser(url: str) -> str:
         if not url.startswith("http://") and not url.startswith("https://"):
             url = "https://" + url
 
-        # Find Chrome installation path
+        import win32gui
+        import win32con
+        import pyautogui
+        pyautogui.FAILSAFE = False
+
+        # 1. Check if Chrome or Edge window is already running and open
+        hwnds = []
+        def enum_cb(hwnd, _):
+            if win32gui.IsWindowVisible(hwnd):
+                title = win32gui.GetWindowText(hwnd)
+                if any(b in title.lower() for b in ["chrome", "edge", "youtube"]):
+                    hwnds.append(hwnd)
+        win32gui.EnumWindows(enum_cb, None)
+
+        if hwnds:
+            target_hwnd = hwnds[0]
+            bring_window_to_foreground("Chrome")
+            bring_window_to_foreground("Edge")
+            time.sleep(0.3)
+            # Open new tab directly in existing browser window
+            pyautogui.hotkey('ctrl', 't')
+            time.sleep(0.3)
+            pyautogui.write(url, interval=0.01)
+            time.sleep(0.1)
+            pyautogui.press('enter')
+            return f"Successfully opened {url} in active browser on screen."
+
+        # 2. If no browser window is open, launch Chrome directly
         chrome_paths = [
             r"C:\Program Files\Google\Chrome\Application\chrome.exe",
             r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -303,7 +407,6 @@ def open_url_in_browser(url: str) -> str:
         chrome_exe = next((p for p in chrome_paths if os.path.exists(p)), None)
 
         if chrome_exe:
-            # Launch or open new tab directly in Chrome
             subprocess.Popen([chrome_exe, url], shell=False)
         else:
             try:
@@ -311,7 +414,6 @@ def open_url_in_browser(url: str) -> str:
             except Exception:
                 webbrowser.open_new(url)
 
-        # Bring browser window to top immediately
         time.sleep(1.0)
         bring_window_to_foreground("Chrome")
         bring_window_to_foreground("YouTube")
@@ -603,6 +705,7 @@ AGENT_TOOLS = [
     search_in_files,
     search_windows_apps,
     install_windows_app,
+    get_installed_applications,
     launch_application,
     close_process,
     open_url_in_browser,

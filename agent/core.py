@@ -14,6 +14,7 @@ from agent.tools import (
     control_volume, windows_power_control, move_and_click_mouse,
     keyboard_type_and_press, capture_screenshot, list_open_windows,
     get_clipboard_content, set_clipboard_content,
+    get_installed_applications,
     live_browser_open, live_browser_interact, live_browser_close
 )
 
@@ -21,9 +22,11 @@ SYSTEM_INSTRUCTION = f"""You are {AGENT_NAME} (প্যান্ডা), an aut
 
 Real-Life Autonomous PC & Developer Control Mode (Hermes-Style Full Computer Control):
 - You have complete control to operate the computer just like a real developer:
-  * Inspect screen visually (`capture_screenshot`) to verify UI state, errors, or application windows.
+  * Scan and find installed apps across Windows (`get_installed_applications`).
+  * Open any IDE, application, or software (`launch_application` e.g. 'code', 'chrome', 'vlc', 'figma', 'notion', 'postman').
+  * Browse the web LIVE with real visible browser window (`live_browser_open`, `live_browser_interact`, `live_browser_close`, `open_url_in_browser`).
+  * Inspect screen visually (`capture_screenshot`) when explicitly requested.
   * Inspect and manage running windows (`list_open_windows`).
-  * Open any IDE, application, or tool (`launch_application` e.g. 'code', 'explorer', 'chrome', 'cmd').
   * Read and manipulate clipboard (`get_clipboard_content`, `set_clipboard_content`).
   * Move the mouse across screen and click buttons (`move_and_click_mouse`).
   * Type text, edit code, and execute keyboard hotkeys (`keyboard_type_and_press`).
@@ -50,10 +53,13 @@ Language & Communication Rules (ভাষা এবং যোগাযোগ ন
 
 CRITICAL ACTION RULES:
 1. **ACTION FIRST, DIRECTLY LIVE ON SCREEN (বাস্তব স্ক্রিনে সরাসরি কাজ করা)**:
-   - When the user asks to open a website, application, or perform an activity (e.g. "open youtube and search lofi music", "browse news"):
-     * Prefer `live_browser_open(url)` to launch a live, visible Chromium browser on the desktop (`headless=False`).
-     * Then immediately use `live_browser_interact(action="search", text="...")` or `live_browser_interact(action="click", selector="...")` to perform live actions directly.
-     * The user will literally watch the browser open on their screen, type the search query, and play/open the requested content in real-time.
+   - When the user asks to open a website, application, or perform an activity (e.g. "open youtube and play music", "ইউটিউব ওপেন করো", "VS Code ওপেন করো"):
+     * Directly call `open_url_in_browser(url)` or `launch_application(app_or_path)` to bring the application right to the user's screen.
+     * To find any installed app on PC, use `get_installed_applications(filter_keyword)`.
+     * To search or play music on YouTube:
+       - If using `open_url_in_browser("https://www.youtube.com")`: wait a moment and then use `keyboard_type_and_press(hotkey="/")` or click the search box, followed by `keyboard_type_and_press(text="lofi music", hotkey="enter")`.
+       - If using `live_browser_open("https://www.youtube.com")`: immediately call `live_browser_interact(action="search", text="lofi music")` and click the first video.
+     * NEVER hallucinate or pretend an action happened if you haven't executed the tool call.
 2. **NO UNWANTED SCREENSHOTS**:
    - Do NOT take screenshots repeatedly or unprompted. Only use `capture_screenshot` when the user explicitly asks for a screenshot ("screenshot dao", "screen dekhao", etc.) or if you need to visually debug an unknown UI error.
 3. When asked to code, debug, create projects, or control apps:
@@ -68,6 +74,7 @@ TOOL_MAP = {
     "search_in_files": search_in_files,
     "search_windows_apps": search_windows_apps,
     "install_windows_app": install_windows_app,
+    "get_installed_applications": get_installed_applications,
     "launch_application": launch_application,
     "close_process": close_process,
     "open_url_in_browser": open_url_in_browser,
@@ -193,6 +200,19 @@ TOOL_DECLARATIONS = [
                 }
             },
             "required": ["package_id_or_name"]
+        }
+    },
+    {
+        "name": "get_installed_applications",
+        "description": "Scan and list installed applications, software, and executables on this Windows PC (scans Program Files, LocalAppData, and Start Menu).",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "filter_keyword": {
+                    "type": "STRING",
+                    "description": "Optional keyword or name to filter installed apps (e.g. 'chrome', 'code', 'vlc', 'discord')"
+                }
+            }
         }
     },
     {
