@@ -16,6 +16,9 @@
   <!-- Header -->
   <header>
     <div class="brand">
+      <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle Sidebar (সাইডবার দেখান/লুকান)">
+        ☰
+      </button>
       <div class="brand-icon">🐼</div>
       <div>
         <span class="brand-title">Panda</span>
@@ -35,21 +38,30 @@
         <div class="status-dot"></div>
         <span>Connecting...</span>
       </div>
-      <button id="voice-mute-btn" class="voice-mute-btn" onclick="toggleVoiceMute()" title="Toggle voice response (অডিও উত্তর অন/অফ)">
-        🔊 Voice Reply: ON
-      </button>
+      <div class="voice-controls-wrapper" style="display:flex; align-items:center; gap:6px;">
+        <label for="voice-select" style="font-size:0.8rem; color:var(--text-dim);" title="Select Voice">🗣️ Voice:</label>
+        <select id="voice-select" class="model-select" style="max-width:180px;" title="Choose speech voice">
+          <option value="auto">Auto (Bangla bn-BD)</option>
+        </select>
+        <button id="voice-mute-btn" class="voice-mute-btn" onclick="toggleVoiceMute()" title="Toggle voice response (অডিও উত্তর অন/অফ)">
+          🔊 Voice: ON
+        </button>
+      </div>
     </div>
   </header>
 
   <!-- Main App Layout -->
   <div class="app-container">
     <!-- Sidebar: Conversation History -->
-    <aside class="sidebar">
+    <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
-        <span>Chats</span>
-        <div style="display:flex; gap:6px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span>Chats</span>
+        </div>
+        <div style="display:flex; gap:6px; align-items:center;">
           <button class="new-chat-btn" onclick="createNewChatSession()" title="New Chat">➕ New</button>
           <button class="clear-all-btn" onclick="clearAllConversations()" title="Clear All Chats">🗑️ Clear</button>
+          <button class="sidebar-close-btn" onclick="toggleSidebar()" title="Collapse Sidebar (সাইডবার বন্ধ করুন)">◀</button>
         </div>
       </div>
       <div id="conversation-history-list" class="conversation-history-list">
@@ -63,7 +75,14 @@
 
       <!-- Input Area -->
       <div class="chat-input-area">
+        <!-- Attachment Previews Container -->
+        <div id="attachment-preview-container" class="attachment-preview-container"></div>
+
         <div class="input-box-wrapper">
+          <input type="file" id="file-input" style="display:none;" multiple accept="image/*,.pdf,.txt,.py,.js,.html,.css,.json,.md,.csv,.log">
+          <button id="attach-btn" class="attach-btn" type="button" title="Add Attachments (ছবি, ডকুমেন্ট বা ফাইল যুক্ত করুন)">
+            📎
+          </button>
           <button id="mic-btn" class="mic-btn" onclick="toggleSpeechRecognition()" title="Voice Command (Speak in English or Hindi)">
             <span id="mic-icon">🎤</span>
           </button>

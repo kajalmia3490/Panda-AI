@@ -351,6 +351,65 @@ def keyboard_type_and_press(text: str = None, hotkey: str = None) -> str:
     except Exception as e:
         return f"Error simulating keyboard: {str(e)}"
 
+def capture_screenshot(filename: str = "current_screen.png") -> str:
+    """Capture a high-resolution screenshot of the Windows desktop screen so the agent can see active windows, UI dialogs, errors, and coding state."""
+    try:
+        import pyautogui
+        target_path = _resolve_path(filename)
+        pyautogui.FAILSAFE = False
+        img = pyautogui.screenshot()
+        img.save(target_path)
+        return f"Screenshot saved successfully to '{target_path}'. Dimensions: {img.size[0]}x{img.size[1]}."
+    except Exception as e:
+        return f"Error capturing screenshot: {str(e)}"
+
+def list_open_windows() -> str:
+    """List all currently visible application windows with their titles and HWNDs on the Windows PC."""
+    try:
+        import win32gui
+        windows = []
+        def enum_handler(hwnd, _):
+            if win32gui.IsWindowVisible(hwnd):
+                title = win32gui.GetWindowText(hwnd)
+                if title and len(title.strip()) > 1 and not title in ["Default IME", "MSCTFIME UI"]:
+                    rect = win32gui.GetWindowRect(hwnd)
+                    windows.append(f"- '{title}' [pos: {rect[0]},{rect[1]} size: {rect[2]-rect[0]}x{rect[3]-rect[1]}]")
+        win32gui.EnumWindows(enum_handler, None)
+        if not windows:
+            return "No prominent open windows detected."
+        return "Open Visible Windows:\n" + "\n".join(windows[:30])
+    except Exception as e:
+        return f"Error listing windows: {str(e)}"
+
+def get_clipboard_content() -> str:
+    """Read the current text from the Windows clipboard."""
+    try:
+        import win32clipboard
+        win32clipboard.OpenClipboard()
+        try:
+            if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_UNICODETEXT):
+                data = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
+                return f"Clipboard Content:\n{data}"
+            return "Clipboard does not contain text data."
+        finally:
+            win32clipboard.CloseClipboard()
+    except Exception as e:
+        return f"Error reading clipboard: {str(e)}"
+
+def set_clipboard_content(text: str) -> str:
+    """Copy text directly to the Windows clipboard."""
+    try:
+        import win32clipboard
+        win32clipboard.OpenClipboard()
+        try:
+            win32clipboard.EmptyClipboard()
+            win32clipboard.SetClipboardText(text, win32clipboard.CF_UNICODETEXT)
+            return "Text copied to clipboard successfully."
+        finally:
+            win32clipboard.CloseClipboard()
+    except Exception as e:
+        return f"Error copying to clipboard: {str(e)}"
+
 AGENT_TOOLS = [
     list_files,
     read_file,
@@ -367,4 +426,8 @@ AGENT_TOOLS = [
     windows_power_control,
     move_and_click_mouse,
     keyboard_type_and_press,
+    capture_screenshot,
+    list_open_windows,
+    get_clipboard_content,
+    set_clipboard_content,
 ]

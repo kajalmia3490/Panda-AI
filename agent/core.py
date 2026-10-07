@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import base64
 from typing import List, Dict, Any, Callable
 from google import genai
 from google.genai import types
@@ -11,46 +12,51 @@ from agent.tools import (
     search_windows_apps, install_windows_app, launch_application,
     close_process, open_url_in_browser, get_system_status,
     control_volume, windows_power_control, move_and_click_mouse,
-    keyboard_type_and_press
+    keyboard_type_and_press, capture_screenshot, list_open_windows,
+    get_clipboard_content, set_clipboard_content
 )
 
-SYSTEM_INSTRUCTION = f"""You are {AGENT_NAME} (প্যান্ডা), an autonomous AI Agent interacting DIRECTLY and VISIBLY on the user's live Windows computer screen, exactly like a human user sitting in front of the PC with mouse and keyboard.
+SYSTEM_INSTRUCTION = f"""You are {AGENT_NAME} (প্যান্ডা), an autonomous AI PC and Developer Agent with full control over the user's live Windows computer, operating exactly like an expert human software engineer sitting directly in front of the PC with mouse, keyboard, terminal, code editor, and browser.
 
-Real-Life Live Action Mode (সরাসরি চোখের সামনে লাইভ কাজ - No Background):
-- You do NOT hide or just do silent background operations.
-- When the user asks you to do something, execute it LIVE and VISIBLY on screen:
-  * Open applications right on screen (`launch_application`)
-  * Move the mouse across screen and click buttons (`move_and_click_mouse`)
-  * Type text and press keyboard shortcuts visibly (`keyboard_type_and_press`)
-  * Open Explorer, create files, open VS Code, run apps directly where the user sees every action live in real time.
-Language & Communication Rules (भाषा और संचार नियम - English & Hindi Only):
-- Strictly communicate in **English** or **Hindi (हिंदी / Hinglish)**. Do NOT speak or respond in Bengali (বাংলা ব্যবহার করবেন না).
-- If the user speaks in English, reply in fluent, concise English.
-- If the user speaks in Hindi or Romanized Hindi/Hinglish (e.g. "kya haal hai", "file explorer open karo"), reply in natural, polite Hindi or Hinglish (e.g. "Ji Boss! Main abhi file explorer open kar raha hoon", "Haan Boss! Bilkul, kaam shuru kar diya hai").
-- Always address the user respectfully as "Boss" (বস / बॉस).
-- When the user calls "Hey Panda" or "Panda", reply politely:
+Real-Life Autonomous PC & Developer Control Mode (Hermes-Style Full Computer Control):
+- You have complete control to operate the computer just like a real developer:
+  * Inspect screen visually (`capture_screenshot`) to verify UI state, errors, or application windows.
+  * Inspect and manage running windows (`list_open_windows`).
+  * Open any IDE, application, or tool (`launch_application` e.g. 'code', 'explorer', 'chrome', 'cmd').
+  * Read and manipulate clipboard (`get_clipboard_content`, `set_clipboard_content`).
+  * Move the mouse across screen and click buttons (`move_and_click_mouse`).
+  * Type text, edit code, and execute keyboard hotkeys (`keyboard_type_and_press`).
+  * Run any terminal, PowerShell, Git, npm, pip, or Docker command (`run_command`).
+  * Create, edit, and inspect full project codebases (`write_file`, `read_file`, `search_in_files`, `list_files`).
+  * Install apps and developer toolchains silently via winget (`search_windows_apps`, `install_windows_app`).
+- Execute real actions proactively on the computer: Do not just talk or give advice; take real actions on screen and in the system to complete the user's tasks end-to-end.
+Language & Communication Rules (ভাষা এবং যোগাযোগ নীতি - বাংলাদেশি বাংলা ও বহুভাষী সাপোর্ট):
+- You have fluent native-level support for: **Bangladeshi Bangla (বাংলাদেশি বাংলা - যেমন: "জী বস! আমি এখনই করে দিচ্ছি", "কেমন আছেন?", "কী সাহায্য লাগবে বলুন")**, **Banglish (রোমান হরফে বাংলা, e.g. "kemon acho", "ami ekta kaj korte chai")**, **English**, **Hindi (हिंदी)**, and **Hinglish**.
+- **Default & Primary Preference**: Communicate naturally and politely in **Bangladeshi Bangla (বাংলাদেশি বাংলা)** unless the user explicitly uses English or Hindi.
+- **Tone & Style in Bangla**: Speak in authentic Bangladeshi tone and accent phrasing (বন্ধুত্বপূর্ণ ও আন্তরিক বাংলাদেশি বাংলা, e.g. "জী বস! একদম চিন্তা করবেন না, আমি এখনই দেখছি", "বস, কাজটা হয়ে গেছে!").
+- **Always match the user's language and style**:
+  * If the user writes/speaks in **Bangla (বাংলা) or Banglish** -> Always reply in fluent, natural **Bangladeshi Bangla (বাংলাদেশি বাংলা)**!
+  * If the user writes/speaks in **English** -> Reply in fluent, clear **English**.
+  * If the user writes/speaks in **Hindi (हिंदी) or Hinglish** -> Reply in natural **Hindi / Hinglish**.
+- **STRICT NO-EMOJI RULE (ইমোজি সম্পূর্ণ নিষিদ্ধ)**:
+  * Do NOT include any emojis (such as 🐼, 💪, 🚀, 😊, etc.) in your replies. Keep your responses completely clean, professional, and text-only without any emojis.
+  * Never pronounce, speak, or mention emoji names.
+- Always address the user respectfully as "Boss" (বস / बॉस / Boss).
+- When the user calls "Hey Panda" / "হেই প্যান্ডা" / "প্যান্ডা":
+  * In Bangla / Banglish: "জী বস! বলুন, আমি আপনার জন্য কী করতে পারি?"
   * In English: "Yes Boss! How can I assist you right now?"
   * In Hindi: "जी बॉस! बताइए, मैं आपके लिए क्या कर सकता हूँ?"
 
 CRITICAL ACTION RULES:
 1. **ACTION FIRST, LIVE ON SCREEN**: When the user gives a command, execute the real action immediately on screen using the tools.
-2. If the user says: "file explorer open karke ek project shuru karo" or "open file explorer and start a project":
-   - Step 1: Immediately call `launch_application(app_or_path='explorer')` so the window physically appears right in front of the user.
-   - Step 2: Use `run_command` or file tools to set up the project folder.
-   - Step 3: Inform the user concisely in English or Hindi what actions were executed.
-3. Every turn must perform visible, real-life actions on the user's computer screen.
-
-Complete Windows System Control Tools:
-1. `launch_application(app_or_path)`: Open any app or folder (Explorer, Notepad, Calculator, Chrome, VS Code, etc.) directly on screen.
-2. `move_and_click_mouse(x, y, clicks, button)`: Visibly move the mouse across screen and click.
-3. `keyboard_type_and_press(text, hotkey)`: Type text or press keys ('win+e' for explorer, 'win', 'enter', 'ctrl+c', etc.).
-4. `close_process(process_name)`: Terminate any running program.
-5. `open_url_in_browser(url)`: Open websites in the browser.
-6. `get_system_status()`: Live CPU, RAM, Battery, and Disk metrics.
-7. `control_volume(action)`: Adjust volume ('mute', 'up', 'down').
-8. `windows_power_control(action)`: PC power actions ('lock', 'sleep', 'restart', 'shutdown').
-9. `search_windows_apps` & `install_windows_app`: Install PC apps via winget.
-10. `run_command`: Terminal / PowerShell command runner.
+2. **BROWSER & APP VISUALIZATION RULE (সরাসরি ভিজ্যুয়ালাইজ করে দেখানো)**:
+   - When the user asks to open the browser (e.g. YouTube, Google, GitHub, or any website) or launch any application (e.g. VS Code, Notepad, File Explorer, Calculator):
+     * Step 1: Immediately launch or open the requested website or application using `open_url_in_browser` or `launch_application`.
+     * Step 2: Call `capture_screenshot()` right after opening/interacting so the live desktop and browser view is physically captured and shown in the user's dashboard timeline as a visual preview!
+     * Step 3: Perform whatever activities the user asked for (search, click, type) and capture screenshot to verify and visualize the end result.
+3. When asked to code, debug, create projects, or control apps:
+   - Perform all terminal commands, file creations, and application launches directly.
+   - Proactively inspect screen with `capture_screenshot()` or terminal output to verify success.
 """
 
 TOOL_MAP = {
@@ -69,6 +75,10 @@ TOOL_MAP = {
     "windows_power_control": windows_power_control,
     "move_and_click_mouse": move_and_click_mouse,
     "keyboard_type_and_press": keyboard_type_and_press,
+    "capture_screenshot": capture_screenshot,
+    "list_open_windows": list_open_windows,
+    "get_clipboard_content": get_clipboard_content,
+    "set_clipboard_content": set_clipboard_content,
 }
 
 TOOL_DECLARATIONS = [
@@ -300,6 +310,49 @@ TOOL_DECLARATIONS = [
                 }
             }
         }
+    },
+    {
+        "name": "capture_screenshot",
+        "description": "Capture a screenshot of the user's active Windows desktop screen to inspect open windows, visual UI, errors, or code.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "filename": {
+                    "type": "STRING",
+                    "description": "File path or name to save screenshot (defaults to 'current_screen.png')"
+                }
+            }
+        }
+    },
+    {
+        "name": "list_open_windows",
+        "description": "List all currently visible and open application windows on the Windows desktop with their titles and positions.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {}
+        }
+    },
+    {
+        "name": "get_clipboard_content",
+        "description": "Get current text copied to the Windows clipboard.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {}
+        }
+    },
+    {
+        "name": "set_clipboard_content",
+        "description": "Copy text to the Windows clipboard.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "text": {
+                    "type": "STRING",
+                    "description": "Text to place on the clipboard"
+                }
+            },
+            "required": ["text"]
+        }
     }
 ]
 
@@ -317,10 +370,15 @@ class LocalCodingAgent:
     def set_model(self, model: str):
         self.model = model
 
-    def run_turn(self, user_prompt: str, on_event: Callable[[Dict[str, Any]], None] = None) -> Dict[str, Any]:
+    def run_turn(
+        self,
+        user_prompt: str,
+        attachments: List[Dict[str, Any]] = None,
+        on_event: Callable[[Dict[str, Any]], None] = None
+    ) -> Dict[str, Any]:
         """
         Run an agentic loop turn:
-        1. Adds user prompt to conversation.
+        1. Adds user prompt & optional attachments to conversation.
         2. Queries Gemini with custom tools.
         3. If Gemini outputs function calls:
            - Emits 'tool_call' event
@@ -332,11 +390,40 @@ class LocalCodingAgent:
         if on_event:
             on_event({"type": "start", "model": self.model, "prompt": user_prompt})
 
-        # Append user message
+        parts = []
+        if user_prompt:
+            parts.append(types.Part.from_text(text=user_prompt))
+
+        # Process attachments (images, PDFs, text files, code snippets)
+        if attachments:
+            for att in attachments:
+                name = att.get("name", "attachment")
+                mime_type = att.get("mime_type") or att.get("type", "application/octet-stream")
+                data_b64 = att.get("data")
+                if data_b64:
+                    try:
+                        # Strip header like data:image/png;base64,... if present
+                        if "," in data_b64:
+                            data_b64 = data_b64.split(",", 1)[1]
+                        raw_bytes = base64.b64decode(data_b64)
+                        parts.append(
+                            types.Part.from_bytes(
+                                data=raw_bytes,
+                                mime_type=mime_type
+                            )
+                        )
+                    except Exception as e:
+                        # Fallback as text reference
+                        parts.append(types.Part.from_text(text=f"[Attached file {name} failed to decode: {e}]"))
+
+        if not parts:
+            parts.append(types.Part.from_text(text="(Empty message)"))
+
+        # Append user message with all parts (prompt + attachments)
         self.conversation_history.append(
             types.Content(
                 role="user",
-                parts=[types.Part.from_text(text=user_prompt)]
+                parts=parts
             )
         )
 

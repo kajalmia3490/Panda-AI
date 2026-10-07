@@ -89,6 +89,13 @@ async def api_run_command(req: ExecuteCommandRequest):
     output = run_command(req.command)
     return {"command": req.command, "output": output}
 
+@app.get("/api/screenshot")
+async def get_latest_screenshot(file: str = "current_screen.png"):
+    file_path = os.path.normpath(os.path.join(WORKSPACE_DIR, os.path.basename(file)))
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Screenshot not found.")
+
 @app.websocket("/ws/agent")
 async def agent_websocket(websocket: WebSocket):
     """
@@ -114,6 +121,7 @@ async def agent_websocket(websocket: WebSocket):
 
             if action == "chat":
                 prompt = data.get("prompt", "")
+                attachments = data.get("attachments", [])
                 selected_model = data.get("model")
                 if selected_model:
                     agent_instance.set_model(selected_model)
@@ -128,7 +136,7 @@ async def agent_websocket(websocket: WebSocket):
                 # Run turn in executor so it does not block the event loop
                 res = await loop.run_in_executor(
                     None,
-                    lambda: agent_instance.run_turn(prompt, on_event=emit_event)
+                    lambda: agent_instance.run_turn(prompt, attachments=attachments, on_event=emit_event)
                 )
 
             elif action == "reset":

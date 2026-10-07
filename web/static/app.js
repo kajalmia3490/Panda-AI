@@ -18,6 +18,62 @@ const statusBadge = document.getElementById('status-badge');
 const micBtn = document.getElementById('mic-btn');
 const voiceStatusText = document.getElementById('voice-status-text');
 const voiceMuteBtn = document.getElementById('voice-mute-btn');
+const voiceSelect = document.getElementById('voice-select');
+const sidebar = document.getElementById('sidebar');
+const fileInput = document.getElementById('file-input');
+const attachBtn = document.getElementById('attach-btn');
+const attachmentPreviewContainer = document.getElementById('attachment-preview-container');
+
+let pendingAttachments = []; // Array of { name, type, size, data (base64) }
+
+function toggleSidebar() {
+  if (!sidebar) return;
+  const isCollapsed = sidebar.classList.toggle('collapsed');
+  localStorage.setItem('panda_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+}
+
+function initSidebarState() {
+  if (!sidebar) return;
+  const savedState = localStorage.getItem('panda_sidebar_collapsed');
+  // Collapse on mobile by default or if user previously collapsed it
+  if (savedState === 'true' || (savedState === null && window.innerWidth <= 768)) {
+    sidebar.classList.add('collapsed');
+  } else {
+    sidebar.classList.remove('collapsed');
+  }
+}
+
+let availableVoices = [];
+
+function populateVoiceList() {
+  if (!('speechSynthesis' in window) || !voiceSelect) return;
+  availableVoices = window.speechSynthesis.getVoices();
+  if (!availableVoices || availableVoices.length === 0) return;
+
+  const currentSelection = voiceSelect.value || localStorage.getItem('panda_preferred_voice') || 'auto';
+  voiceSelect.innerHTML = '<option value="auto">Auto (Bangla bn-BD Priority)</option>';
+
+  // Sort: Bangla & Hindi first, then other languages
+  const sortedVoices = [...availableVoices].sort((a, b) => {
+    const aIsBn = a.lang.toLowerCase().includes('bn');
+    const bIsBn = b.lang.toLowerCase().includes('bn');
+    if (aIsBn && !bIsBn) return -1;
+    if (!aIsBn && bIsBn) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  sortedVoices.forEach((voice) => {
+    const opt = document.createElement('option');
+    opt.value = voice.name;
+    const isBn = voice.lang.toLowerCase().includes('bn') ? ' 🇧🇩 [Bangla]' : '';
+    const isHi = voice.lang.toLowerCase().includes('hi') ? ' 🇮🇳 [Hindi]' : '';
+    opt.textContent = `${voice.name} (${voice.lang})${isBn}${isHi}`;
+    if (voice.name === currentSelection) {
+      opt.selected = true;
+    }
+    voiceSelect.appendChild(opt);
+  });
+}
 
 function initWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -171,6 +227,10 @@ function appendToolCall(toolName, args) {
   if (toolName === 'install_windows_app') icon = '📦';
   if (toolName === 'move_and_click_mouse') icon = '🖱️';
   if (toolName === 'keyboard_type_and_press') icon = '⌨️';
+  if (toolName === 'capture_screenshot') icon = '📸';
+  if (toolName === 'list_open_windows') icon = '🪟';
+  if (toolName === 'get_clipboard_content') icon = '📋';
+  if (toolName === 'set_clipboard_content') icon = '📋';
 
   const argsSummary = Object.entries(args || {})
     .map(([k, v]) => {
@@ -201,11 +261,26 @@ function appendToolResult(toolName, result) {
   const preview = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
   const truncated = preview.length > 300 ? preview.slice(0, 300) + `\n... (+${preview.length - 300} more chars)` : preview;
 
+  let extraVisualHtml = '';
+  // If agent captured a screenshot, render live visual image card directly in chat
+  if (toolName === 'capture_screenshot') {
+    const timestamp = Date.now();
+    extraVisualHtml = `
+      <div style="margin-top:8px;">
+        <a href="/api/screenshot?t=${timestamp}" target="_blank" title="Click to view full screen">
+          <img src="/api/screenshot?t=${timestamp}" style="max-width:100%; max-height:260px; border-radius:8px; border:1px solid var(--border-color); box-shadow:0 4px 12px rgba(0,0,0,0.3); object-fit:contain; background:#000;" alt="Screen Activity Visual">
+        </a>
+        <div style="font-size:0.7rem; color:var(--text-dim); margin-top:3px;">📸 Live Desktop Activity Preview (Click to view full)</div>
+      </div>
+    `;
+  }
+
   pill.innerHTML = `
     <div class="tool-icon">✓</div>
     <div class="tool-details">
       <div class="tool-name" style="color:var(--accent-emerald);">Result: ${toolName}</div>
       <div class="tool-output">${escapeHtml(truncated)}</div>
+      ${extraVisualHtml}
     </div>
   `;
 
@@ -213,7 +288,65 @@ function appendToolResult(toolName, result) {
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-function appendUserMessage(text, record = true) {
+function renderAttachmentPreviews() {
+  if (!attachmentPreviewContainer) return;
+  attachmentPreviewContainer.innerHTML = '';
+  if (pendingAttachments.length === 0) {
+    attachmentPreviewContainer.style.display = 'none';
+    return;
+  }
+  attachmentPreviewContainer.style.display = 'flex';
+
+  pendingAttachments.forEach((att, index) => {
+    const item = document.createElement('div');
+    item.className = 'attachment-preview-item';
+
+    const isImg = att.type.startsWith('image/');
+    let previewEl = '';
+    if (isImg && att.data) {
+      previewEl = `<img src="${att.data}" class="attachment-preview-thumb" alt="${escapeHtml(att.name)}">`;
+    } else {
+      const ext = att.name.split('.').pop() || 'file';
+      previewEl = `<div class="attachment-preview-icon">📄</div>`;
+    }
+
+    item.innerHTML = `
+      ${previewEl}
+      <div class="attachment-preview-name" title="${escapeHtml(att.name)}">${escapeHtml(att.name)}</div>
+      <button type="button" class="attachment-remove-btn" onclick="removeAttachment(${index})" title="Remove attachment">✕</button>
+    `;
+    attachmentPreviewContainer.appendChild(item);
+  });
+}
+
+function removeAttachment(index) {
+  pendingAttachments.splice(index, 1);
+  renderAttachmentPreviews();
+}
+
+function handleFilesSelected(files) {
+  if (!files || files.length === 0) return;
+  Array.from(files).forEach((file) => {
+    // Max 10MB per file for WebSocket transfer
+    if (file.size > 10 * 1024 * 1024) {
+      alert(`ফাইল '${file.name}' সাইজ অনেক বড় (সর্বোচ্চ ১০MB)`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      pendingAttachments.push({
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        size: file.size,
+        data: e.target.result // Data URL (data:image/png;base64,...)
+      });
+      renderAttachmentPreviews();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function appendUserMessage(text, attachments = [], record = true) {
   const wrapper = document.createElement('div');
   wrapper.className = 'msg-wrapper user';
 
@@ -224,7 +357,46 @@ function appendUserMessage(text, record = true) {
 
   const bubble = document.createElement('div');
   bubble.className = 'msg-bubble';
-  bubble.textContent = text;
+
+  // Render attached images/files in user bubble
+  if (attachments && attachments.length > 0) {
+    const attContainer = document.createElement('div');
+    attContainer.style.display = 'flex';
+    attContainer.style.flexWrap = 'wrap';
+    attContainer.style.gap = '8px';
+    attContainer.style.marginBottom = text ? '8px' : '0';
+
+    attachments.forEach((att) => {
+      if (att.type && att.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = att.data;
+        img.style.maxWidth = '200px';
+        img.style.maxHeight = '140px';
+        img.style.borderRadius = '8px';
+        img.style.objectFit = 'cover';
+        img.style.border = '1px solid rgba(255,255,255,0.15)';
+        attContainer.appendChild(img);
+      } else {
+        const fileChip = document.createElement('div');
+        fileChip.style.display = 'inline-flex';
+        fileChip.style.alignItems = 'center';
+        fileChip.style.gap = '6px';
+        fileChip.style.background = 'rgba(0,0,0,0.25)';
+        fileChip.style.padding = '4px 8px';
+        fileChip.style.borderRadius = '6px';
+        fileChip.style.fontSize = '0.8rem';
+        fileChip.innerHTML = `📎 <span>${escapeHtml(att.name)}</span>`;
+        attContainer.appendChild(fileChip);
+      }
+    });
+    bubble.appendChild(attContainer);
+  }
+
+  if (text) {
+    const textNode = document.createElement('div');
+    textNode.textContent = text;
+    bubble.appendChild(textNode);
+  }
 
   wrapper.appendChild(header);
   wrapper.appendChild(bubble);
@@ -233,43 +405,28 @@ function appendUserMessage(text, record = true) {
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
   if (record) {
-    recordMessageToHistory('user', text);
+    recordMessageToHistory('user', text || '[Attachment]');
   }
-}
-
-function appendErrorMessage(msg) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'msg-wrapper agent';
-  wrapper.innerHTML = `
-    <div class="msg-bubble" style="border-left: 3px solid var(--accent-rose); background: rgba(244, 63, 94, 0.1);">
-      <div style="color:var(--accent-rose); font-weight:600; margin-bottom:4px;">Execution Error</div>
-      <div style="font-size:0.85rem; color:var(--text-muted);">${escapeHtml(msg)}</div>
-    </div>
-  `;
-  messagesContainer.appendChild(wrapper);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-function appendSystemNotice(text) {
-  const note = document.createElement('div');
-  note.style.textAlign = 'center';
-  note.style.fontSize = '0.75rem';
-  note.style.color = 'var(--text-dim)';
-  note.style.padding = '8px 0';
-  note.textContent = text;
-  messagesContainer.appendChild(note);
 }
 
 function sendMessage() {
   const text = userInput.value.trim();
-  if (!text || !isConnected) return;
+  const hasAttachments = pendingAttachments.length > 0;
+  if ((!text && !hasAttachments) || !isConnected) return;
 
-  appendUserMessage(text);
+  const currentAttachments = [...pendingAttachments];
+  pendingAttachments = [];
+  renderAttachmentPreviews();
+
+  appendUserMessage(text, currentAttachments);
   userInput.value = '';
+
+  setAgentWorking(true);
 
   ws.send(JSON.stringify({
     action: 'chat',
     prompt: text,
+    attachments: currentAttachments,
     model: modelSelect.value
   }));
 }
@@ -417,11 +574,13 @@ function speakText(text) {
     try { recognition.stop(); } catch (e) {}
   }
 
-  // Strip markdown symbols and code blocks for clean, natural speech
+  // Strip markdown symbols, asterisks, hashtags and code blocks
   let cleanText = text
-    .replace(/```[\s\S]*?```/g, 'কোড তৈরি সম্পন্ন হয়েছে')
+    .replace(/```[\s\S]*?```/g, 'কোড তৈরি সম্পন্ন হয়েছে।')
     .replace(/`([^`]+)`/g, '$1')
-    .replace(/[*_#~>\[\]]/g, '')
+    .replace(/[*_#~>\[\]\(\)]/g, '')
+    // Strip all emojis and symbol characters completely so TTS never pronounces emoji names
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{1F004}\u{1F0CF}\u{1F170}-\u{1F251}]/gu, '')
     .trim();
 
   // If text is very long, summarize for spoken audio
@@ -429,41 +588,97 @@ function speakText(text) {
     cleanText = cleanText.substring(0, 250) + '... বিস্তারিত স্ক্রিনে দেখানো হলো।';
   }
 
-  window.speechSynthesis.cancel();
+  try {
+    // Resume audio context/speech synthesis if paused by browser autoplay policy
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+    window.speechSynthesis.cancel();
+  } catch (e) {}
+
   const utterance = new SpeechSynthesisUtterance(cleanText);
   utterance.rate = 1.0;
   utterance.pitch = 1.0;
+  utterance.volume = 1.0;
 
-  // Pick appropriate voice (prefer Hindi or English)
-  const voices = window.speechSynthesis.getVoices();
+  // Pick appropriate voice
+  let voices = window.speechSynthesis.getVoices();
+  const isBanglaText = /[\u0980-\u09FF]/.test(cleanText);
   const isHindiText = /[\u0900-\u097F]/.test(cleanText);
   let chosenVoice = null;
-  if (isHindiText) {
-    chosenVoice = voices.find(v => v.lang.includes('hi') || v.lang.includes('HI'));
+
+  // 1. Check if user selected a specific voice from dropdown
+  const preferredVoiceName = voiceSelect ? voiceSelect.value : 'auto';
+  if (preferredVoiceName && preferredVoiceName !== 'auto') {
+    chosenVoice = voices.find(v => v.name === preferredVoiceName);
+    if (chosenVoice) {
+      utterance.lang = chosenVoice.lang;
+    }
   }
+
+  // 2. If auto or not found, detect by language
   if (!chosenVoice) {
-    chosenVoice = voices.find(v => v.lang.includes('en') || v.lang.includes('US') || v.lang.includes('IN'));
+    if (isBanglaText) {
+      utterance.lang = 'bn-BD';
+      chosenVoice = voices.find(v => v.lang === 'bn-BD' || v.lang.toLowerCase().includes('bn-bd')) ||
+                    voices.find(v => v.lang.toLowerCase().includes('bn-in') || v.lang.toLowerCase().includes('bn')) ||
+                    voices.find(v => v.lang.toLowerCase().includes('in'));
+    } else if (isHindiText) {
+      utterance.lang = 'hi-IN';
+      chosenVoice = voices.find(v => v.lang.includes('hi') || v.lang.includes('HI'));
+    } else {
+      utterance.lang = 'en-US';
+    }
+  }
+
+  // If still not matched, fallback to system default voice
+  if (!chosenVoice) {
+    chosenVoice = voices.find(v => v.lang.includes('en') || v.lang.includes('US') || v.lang.includes('GB')) || voices[0];
   }
   if (chosenVoice) {
     utterance.voice = chosenVoice;
   }
 
   isSpeaking = true;
+  // Explicitly abort/stop recognition while Panda speaks to guarantee no loop/echo
+  if (recognition) {
+    try { recognition.abort(); } catch (e) {}
+  }
+
+  utterance.onstart = () => {
+    isSpeaking = true;
+    if (recognition) {
+      try { recognition.abort(); } catch (e) {}
+    }
+  };
+
   utterance.onend = () => {
-    isSpeaking = false;
-    // Resume listening after agent speech completes if mic was previously active
+    // Keep a 400ms buffer after speech finishes so room echo does not trigger the mic
     setTimeout(() => {
-      if (!isSpeaking && recognition && !isRecognizing) {
+      isSpeaking = false;
+      if (recognition && !isRecognizing) {
         try { recognition.start(); } catch (e) {}
       }
-    }, 500);
+    }, 400);
   };
 
-  utterance.onerror = () => {
-    isSpeaking = false;
+  utterance.onerror = (err) => {
+    console.warn('SpeechSynthesis error:', err);
+    setTimeout(() => {
+      isSpeaking = false;
+      if (recognition && !isRecognizing) {
+        try { recognition.start(); } catch (e) {}
+      }
+    }, 300);
   };
 
-  window.speechSynthesis.speak(utterance);
+  // Workaround for Chrome/Edge garbage-collection bug on long utterances
+  window._currentUtterance = utterance;
+
+  // Small timeout after cancel() prevents speech synthesis queue drop bug in Chromium
+  setTimeout(() => {
+    window.speechSynthesis.speak(utterance);
+  }, 50);
 }
 
 function toggleVoiceMute() {
@@ -490,30 +705,58 @@ function initSpeechRecognition() {
   recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.lang = 'bn-BD'; // Primary Bengali, but captures English phrases like 'Hey Lootha'
+  recognition.lang = 'bn-BD'; // Primary Bengali, captures English & Hindi phrases seamlessly
 
   recognition.onstart = () => {
     isRecognizing = true;
     micBtn.classList.add('listening');
-    voiceStatusText.textContent = '🎙️ শুনছি... বলুন "Hey Panda" বা আপনার নির্দেশ!';
+    voiceStatusText.textContent = '🎙️ সর্বদা শুনছি... বলুন "Hey Panda" বা যেকোনো নির্দেশ!';
   };
 
   recognition.onend = () => {
     isRecognizing = false;
-    micBtn.classList.remove('listening');
-    voiceStatusText.textContent = '🎤 মাইক্রোফোন বাটনে ক্লিক করে কথা বলুন';
+    // Always-on voice recognition: auto-restart immediately unless agent is speaking
+    if (!isSpeaking) {
+      setTimeout(() => {
+        if (!isRecognizing && !isSpeaking) {
+          try {
+            recognition.start();
+          } catch (e) {}
+        }
+      }, 300);
+    } else {
+      micBtn.classList.remove('listening');
+      voiceStatusText.textContent = '🔊 Panda কথা বলছে... (মাইক্রোফোন সাময়িক মিউট)';
+    }
   };
 
   recognition.onerror = (event) => {
-    console.warn('Speech recognition error:', event.error);
+    console.warn('Speech recognition status:', event.error);
     isRecognizing = false;
     micBtn.classList.remove('listening');
-    voiceStatusText.textContent = `🎤 ত্রুটি: ${event.error} (আবার চেষ্টা করুন)`;
+    // For no-speech or network glitches, auto-restart silently to keep voice always-on
+    if (event.error === 'no-speech' || event.error === 'audio-capture' || event.error === 'network') {
+      setTimeout(() => {
+        if (!isRecognizing && !isSpeaking) {
+          try { recognition.start(); } catch (e) {}
+        }
+      }, 1000);
+    } else {
+      voiceStatusText.textContent = `🎤 অবস্থা: ${event.error} (স্বয়ংক্রিয়ভাবে পুনরায় চালু হচ্ছে...)`;
+      setTimeout(() => {
+        if (!isRecognizing && !isSpeaking) {
+          try { recognition.start(); } catch (e) {}
+        }
+      }, 1500);
+    }
   };
 
   recognition.onresult = (event) => {
-    // If agent is currently speaking, ignore incoming mic audio completely
-    if (isSpeaking) return;
+    // If agent is currently speaking, completely ignore and discard all microphone audio
+    if (isSpeaking) {
+      clearTimeout(silenceTimer);
+      return;
+    }
 
     let interimTranscript = '';
     let finalTranscript = '';
@@ -525,21 +768,24 @@ function initSpeechRecognition() {
       }
     }
 
+    // Double check that agent didn't start speaking in this exact instant
+    if (isSpeaking) {
+      clearTimeout(silenceTimer);
+      return;
+    }
+
     const currentSpeech = (finalTranscript + interimTranscript).trim();
     if (currentSpeech) {
-      voiceStatusText.textContent = `🗣️ Listening: "${currentSpeech}" (Wait 3s of silence to execute)`;
+      voiceStatusText.textContent = `🗣️ শুনছি: "${currentSpeech}"`;
       userInput.value = currentSpeech;
 
-      // Reset and start 3-second silence timer
+      // Reset and start silence threshold timer to execute command
       clearTimeout(silenceTimer);
       silenceTimer = setTimeout(() => {
-        // 3 seconds elapsed without new speech -> stop listening and execute action
+        if (isSpeaking) return; // Prevent executing if AI spoke in between
         const captured = userInput.value.trim();
         if (captured) {
-          voiceStatusText.textContent = `⏳ 3s completed! Executing command: "${captured}"`;
-          if (recognition && isRecognizing) {
-            try { recognition.stop(); } catch (e) {}
-          }
+          voiceStatusText.textContent = `⏳ নির্দেশ কার্যকর করা হচ্ছে: "${captured}"`;
           handleSpokenCommand(captured);
         }
       }, SILENCE_TIMEOUT_MS);
@@ -570,21 +816,30 @@ function handleSpokenCommand(transcript) {
   clearTimeout(silenceTimer);
   const lower = transcript.toLowerCase().trim();
 
-  // Wake-word only detection: e.g. "hey panda", "panda", "hello panda"
+  // Wake-word only detection: e.g. "hey panda", "হেই প্যান্ডা", "হে পাंडा"
   const isWakeWordOnly = 
     lower === 'hey panda' || 
     lower === 'panda' || 
     lower === 'hello panda' || 
     lower === 'hey' ||
+    lower === 'হেই প্যান্ডা' ||
+    lower === 'প্যান্ডা' ||
+    lower === 'হ্যালো প্যান্ডা' ||
+    lower === 'হে পাণ্ডা' ||
     lower === 'हे पांडा' ||
-    lower === 'पांडा';
+    lower === 'पांडा' ||
+    lower === 'नमस्ते पांडा';
 
   if (isWakeWordOnly) {
-    // Instant wake-word response in English / Hindi
-    const isHindiUser = /[\u0900-\u097F]/.test(transcript);
-    const wakeReply = isHindiUser
-      ? 'जी बॉस! बताइए, मैं आपके लिए क्या कर सकता हूँ?'
-      : 'Yes Boss! How can I assist you right now?';
+    const isBangla = /[\u0980-\u09FF]/.test(transcript) || lower.includes('panda') || lower.includes('hey');
+    const isHindi = /[\u0900-\u097F]/.test(transcript);
+    
+    let wakeReply = 'Yes Boss! How can I assist you right now?';
+    if (isBangla) {
+      wakeReply = 'জী বস! বলুন, আমি আপনার জন্য কী করতে পারি?';
+    } else if (isHindi) {
+      wakeReply = 'जी बॉस! बताइए, मैं आपके लिए क्या कर सकता हूँ?';
+    }
 
     appendUserMessage(transcript);
     
@@ -621,12 +876,67 @@ modelSelect.addEventListener('change', () => {
 
 // Initialize on load
 window.addEventListener('DOMContentLoaded', () => {
+  initSidebarState();
   initWebSocket();
   renderConversationHistory();
   initSpeechRecognition();
+
+  // Start continuous listening immediately
+  setTimeout(() => {
+    if (recognition && !isRecognizing && !isSpeaking) {
+      try { recognition.start(); } catch (e) {}
+    }
+  }, 400);
+
+  // Populate voice selector & Pre-load voices immediately
   if ('speechSynthesis' in window) {
+    populateVoiceList();
     window.speechSynthesis.onvoiceschanged = () => {
-      // Voices loaded
+      populateVoiceList();
     };
   }
+
+  if (voiceSelect) {
+    voiceSelect.addEventListener('change', () => {
+      localStorage.setItem('panda_preferred_voice', voiceSelect.value);
+    });
+  }
+
+  // Attach button click
+  if (attachBtn && fileInput) {
+    attachBtn.addEventListener('click', () => {
+      fileInput.click();
+    });
+    fileInput.addEventListener('change', (e) => {
+      handleFilesSelected(e.target.files);
+      fileInput.value = ''; // Reset for re-selection
+    });
+  }
+
+  // Drag and drop files directly onto input area or window
+  window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
+  });
+
+  // Paste screenshots or images directly from clipboard (Ctrl + V)
+  window.addEventListener('paste', (e) => {
+    if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+      handleFilesSelected(e.clipboardData.files);
+    }
+  });
+
+  // Unlock browser audio autoplay policy on first user interaction
+  const unlockAudio = () => {
+    if ('speechSynthesis' in window && window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+    document.removeEventListener('click', unlockAudio);
+  };
+  document.addEventListener('click', unlockAudio);
 });
