@@ -262,15 +262,15 @@ function appendToolResult(toolName, result) {
   const truncated = preview.length > 300 ? preview.slice(0, 300) + `\n... (+${preview.length - 300} more chars)` : preview;
 
   let extraVisualHtml = '';
-  // If agent captured a screenshot, render live visual image card directly in chat
-  if (toolName === 'capture_screenshot') {
+  // If agent captured a screenshot or performed live visual browser/app activity, render live visual image card directly in chat
+  if (toolName === 'capture_screenshot' || (typeof result === 'string' && (result.includes('current_screen.png') || result.includes('Screenshot saved')))) {
     const timestamp = Date.now();
     extraVisualHtml = `
       <div style="margin-top:8px;">
         <a href="/api/screenshot?t=${timestamp}" target="_blank" title="Click to view full screen">
-          <img src="/api/screenshot?t=${timestamp}" style="max-width:100%; max-height:260px; border-radius:8px; border:1px solid var(--border-color); box-shadow:0 4px 12px rgba(0,0,0,0.3); object-fit:contain; background:#000;" alt="Screen Activity Visual">
+          <img src="/api/screenshot?t=${timestamp}" style="max-width:100%; max-height:280px; border-radius:8px; border:1px solid var(--border-color); box-shadow:0 4px 14px rgba(0,0,0,0.35); object-fit:contain; background:#000; display:block;" alt="Live Screen Activity Visual">
         </a>
-        <div style="font-size:0.7rem; color:var(--text-dim); margin-top:3px;">📸 Live Desktop Activity Preview (Click to view full)</div>
+        <div style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">📸 লাইভ অ্যাক্টিভিটি প্রিভিউ (ক্লিক করে বড় করে দেখুন)</div>
       </div>
     `;
   }
@@ -420,6 +420,7 @@ function sendMessage() {
 
   appendUserMessage(text, currentAttachments);
   userInput.value = '';
+  userInput.style.height = '24px';
 
   setAgentWorking(true);
 
@@ -856,11 +857,21 @@ function handleSpokenCommand(transcript) {
   sendMessage();
 }
 
+// Auto-expanding textarea for multiline input
+function autoResizeInput() {
+  userInput.style.height = 'auto';
+  const newHeight = Math.min(Math.max(userInput.scrollHeight, 24), 180);
+  userInput.style.height = `${newHeight}px`;
+}
+
+userInput.addEventListener('input', autoResizeInput);
+
 // Event Listeners
 userInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     sendMessage();
+    userInput.style.height = '24px';
   }
 });
 

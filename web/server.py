@@ -92,6 +92,15 @@ async def api_run_command(req: ExecuteCommandRequest):
 @app.get("/api/screenshot")
 async def get_latest_screenshot(file: str = "current_screen.png"):
     file_path = os.path.normpath(os.path.join(WORKSPACE_DIR, os.path.basename(file)))
+    if not os.path.exists(file_path):
+        try:
+            import pyautogui
+            pyautogui.FAILSAFE = False
+            img = pyautogui.screenshot()
+            img.save(file_path)
+        except Exception:
+            pass
+
     if os.path.exists(file_path):
         return FileResponse(file_path, media_type="image/png")
     raise HTTPException(status_code=404, detail="Screenshot not found.")

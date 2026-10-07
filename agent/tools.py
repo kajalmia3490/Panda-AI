@@ -251,12 +251,27 @@ def close_process(process_name: str) -> str:
         return f"Error closing process '{process_name}': {str(e)}"
 
 def open_url_in_browser(url: str) -> str:
-    """Open any URL or search in the default web browser (e.g. 'https://youtube.com', 'https://google.com')."""
+    """Open any URL or search in the web browser (e.g. 'https://youtube.com', 'https://chatgpt.com', 'https://google.com') and bring the window directly to the front screen."""
     try:
         if not url.startswith("http://") and not url.startswith("https://"):
             url = "https://" + url
-        webbrowser.open(url)
-        return f"Opened {url} in browser."
+
+        # Launch using start command with chrome/default browser for immediate visible tab
+        try:
+            subprocess.Popen(f'start "" "{url}"', shell=True)
+        except Exception:
+            webbrowser.open_new(url)
+
+        # Bring browser window to top
+        time.sleep(1.2)
+        bring_window_to_foreground("Chrome")
+        bring_window_to_foreground("Edge")
+        bring_window_to_foreground("Browser")
+
+        # Auto capture visual screenshot of the opened browser so user sees it right in chat
+        screenshot_res = capture_screenshot("current_screen.png")
+
+        return f"Successfully opened {url} in browser on screen. {screenshot_res}"
     except Exception as e:
         return f"Error opening browser URL: {str(e)}"
 
