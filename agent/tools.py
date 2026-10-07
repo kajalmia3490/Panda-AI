@@ -177,12 +177,26 @@ def install_windows_app(package_id_or_name: str) -> str:
 
 # --- Complete Windows System Control Tools ---
 
+def ensure_desktop_access():
+    """Attach the current calling thread to the active user interactive desktop."""
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        hdesk = user32.OpenInputDesktop(0, False, 0x01FF)
+        if hdesk:
+            user32.SetThreadDesktop(hdesk)
+            return True
+    except Exception:
+        pass
+    return False
+
 def bring_window_to_foreground(title_or_class_fragment: str):
     """Find a window matching title or class fragment and bring it directly to top/foreground."""
     try:
+        ensure_desktop_access()
         import win32gui
         import win32con
-        time.sleep(0.6)  # Give app a moment to create its HWND window
+        time.sleep(0.4)
 
         def enum_handler(hwnd, results):
             if win32gui.IsWindowVisible(hwnd):
@@ -194,23 +208,23 @@ def bring_window_to_foreground(title_or_class_fragment: str):
         win32gui.EnumWindows(enum_handler, hwnds)
         if hwnds:
             target_hwnd = hwnds[0]
-            # Restore if minimized
             win32gui.ShowWindow(target_hwnd, win32con.SW_RESTORE)
-            # Set to top/foreground
             win32gui.SetForegroundWindow(target_hwnd)
             win32gui.BringWindowToTop(target_hwnd)
+            return True
     except Exception:
         pass
+    return False
 
 def launch_application(app_or_path: str) -> str:
     """Launch any Windows program, exe, file, or shortcut (e.g. 'notepad', 'calc', 'chrome', 'explorer', 'cmd', or exact file path) and bring it to top screen."""
     try:
+        ensure_desktop_access()
         import pyautogui
         pyautogui.FAILSAFE = False
         app_lower = app_or_path.lower().strip()
 
         if "explorer" in app_lower or "file manager" in app_lower or "folder" in app_lower:
-            # Absolute foolproof launch of File Explorer on Windows desktop
             try:
                 os.system('explorer.exe')
             except Exception:
@@ -253,18 +267,31 @@ def close_process(process_name: str) -> str:
 def open_url_in_browser(url: str) -> str:
     """Open any URL or search in the web browser (e.g. 'https://youtube.com', 'https://chatgpt.com', 'https://google.com') and bring the window directly to the front screen."""
     try:
+        ensure_desktop_access()
         if not url.startswith("http://") and not url.startswith("https://"):
             url = "https://" + url
 
-        # Launch using start command with chrome/default browser for immediate visible tab
-        try:
-            subprocess.Popen(f'start "" "{url}"', shell=True)
-        except Exception:
-            webbrowser.open_new(url)
+        # Find Chrome installation path
+        chrome_paths = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+        ]
+        chrome_exe = next((p for p in chrome_paths if os.path.exists(p)), None)
+
+        if chrome_exe:
+            # Launch or open new tab directly in Chrome
+            subprocess.Popen([chrome_exe, url], shell=False)
+        else:
+            try:
+                subprocess.Popen(f'start "" "{url}"', shell=True)
+            except Exception:
+                webbrowser.open_new(url)
 
         # Bring browser window to top
-        time.sleep(1.2)
+        time.sleep(1.0)
         bring_window_to_foreground("Chrome")
+        bring_window_to_foreground("YouTube")
         bring_window_to_foreground("Edge")
         bring_window_to_foreground("Browser")
 
@@ -273,6 +300,7 @@ def open_url_in_browser(url: str) -> str:
 
         return f"Successfully opened {url} in browser on screen. {screenshot_res}"
     except Exception as e:
+        return f"Error opening browser URL: {str(e)}"
         return f"Error opening browser URL: {str(e)}"
 
 def get_system_status() -> str:
@@ -339,6 +367,7 @@ def windows_power_control(action: str) -> str:
 def move_and_click_mouse(x: int = None, y: int = None, clicks: int = 1, button: str = "left") -> str:
     """Simulate real live mouse movement and clicking on screen. If x and y not provided, clicks at current mouse position."""
     try:
+        ensure_desktop_access()
         import pyautogui
         pyautogui.FAILSAFE = False
         if x is not None and y is not None:
@@ -353,6 +382,7 @@ def move_and_click_mouse(x: int = None, y: int = None, clicks: int = 1, button: 
 def keyboard_type_and_press(text: str = None, hotkey: str = None) -> str:
     """Simulate live human keyboard typing or pressing hotkeys (e.g. text='Hello World', hotkey='ctrl+c', 'win+e', 'alt+f4', 'enter')."""
     try:
+        ensure_desktop_access()
         import pyautogui
         pyautogui.FAILSAFE = False
         if hotkey:
@@ -369,6 +399,7 @@ def keyboard_type_and_press(text: str = None, hotkey: str = None) -> str:
 def capture_screenshot(filename: str = "current_screen.png") -> str:
     """Capture a high-resolution screenshot of the Windows desktop screen so the agent can see active windows, UI dialogs, errors, and coding state."""
     try:
+        ensure_desktop_access()
         import pyautogui
         target_path = _resolve_path(filename)
         pyautogui.FAILSAFE = False
@@ -381,6 +412,7 @@ def capture_screenshot(filename: str = "current_screen.png") -> str:
 def list_open_windows() -> str:
     """List all currently visible application windows with their titles and HWNDs on the Windows PC."""
     try:
+        ensure_desktop_access()
         import win32gui
         windows = []
         def enum_handler(hwnd, _):

@@ -94,6 +94,8 @@ async def get_latest_screenshot(file: str = "current_screen.png"):
     file_path = os.path.normpath(os.path.join(WORKSPACE_DIR, os.path.basename(file)))
     if not os.path.exists(file_path):
         try:
+            from agent.tools import ensure_desktop_access
+            ensure_desktop_access()
             import pyautogui
             pyautogui.FAILSAFE = False
             img = pyautogui.screenshot()
