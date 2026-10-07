@@ -625,7 +625,7 @@ function quickAction(promptText) {
 }
 
 function resetChat() {
-  if (confirm('কথোপকথন মেমরি রিসেট করবেন?')) {
+  if (confirm('Reset conversation memory?')) {
     createNewChatSession();
   }
 }
@@ -640,9 +640,22 @@ function escapeHtml(text) {
 function speakText(text) {
   if (isVoiceMuted || !('speechSynthesis' in window)) return;
 
-  // Stop listening while speaking to prevent Panda from hearing its own voice
-  if (recognition && isRecognizing) {
-    try { recognition.stop(); } catch (e) {}
+  // Mark speaking state immediately
+  isSpeaking = true;
+  clearTimeout(silenceTimer);
+
+  // Stop & abort voice recognition immediately so Panda never listens to itself
+  if (recognition) {
+    try { recognition.abort(); } catch (e) {}
+  }
+  isRecognizing = false;
+  if (micBtn) {
+    micBtn.classList.remove('listening');
+    micBtn.classList.add('speaking');
+    micBtn.style.opacity = '0.5';
+  }
+  if (voiceStatusText) {
+    voiceStatusText.textContent = '🔊 Panda speaking... (Microphone muted)';
   }
 
   // Clean markdown and emojis for speech
@@ -671,60 +684,56 @@ function speakText(text) {
   utterance.volume = 1.0;
   utterance.lang = 'en-US';
 
-  // Pick appropriate voice
+  // Pick appropriate natural English voice
   let voices = window.speechSynthesis.getVoices();
-  let chosenVoice = null;
-
-  // 1. Check if user selected a specific voice from dropdown
-  const preferredVoiceName = voiceSelect ? voiceSelect.value : 'auto';
-  if (preferredVoiceName && preferredVoiceName !== 'auto') {
-    chosenVoice = voices.find(v => v.name === preferredVoiceName);
-    if (chosenVoice) {
-      utterance.lang = chosenVoice.lang;
-    }
-  }
-
-  // 2. Default to natural English voice
-  if (!chosenVoice) {
-    chosenVoice = voices.find(v => v.lang === 'en-US' || v.lang === 'en_US') ||
-                  voices.find(v => v.lang.toLowerCase().includes('en-gb') || v.lang.toLowerCase().includes('en')) ||
-                  voices[0];
-  }
+  let chosenVoice = voices.find(v => v.lang === 'en-US' || v.lang === 'en_US') ||
+                    voices.find(v => v.lang.toLowerCase().includes('en-gb') || v.lang.toLowerCase().includes('en')) ||
+                    voices[0];
   if (chosenVoice) {
     utterance.voice = chosenVoice;
   }
 
-  isSpeaking = true;
-  // Explicitly abort/stop recognition while Panda speaks to guarantee no loop/echo
-  if (recognition) {
-    try { recognition.abort(); } catch (e) {}
-  }
+  const finishSpeaking = () => {
+    // 600ms buffer after speech finishes so room reverberation/echo does not trigger mic
+    setTimeout(() => {
+      isSpeaking = false;
+      if (micBtn) {
+        micBtn.classList.remove('speaking');
+        micBtn.style.opacity = '1';
+      }
+      if (voiceStatusText) {
+        voiceStatusText.textContent = '🎙️ Listening... Say "Hey Panda" or any command!';
+      }
+      if (recognition && !isRecognizing && !isMicManualDisabled) {
+        try {
+          recognition.start();
+        } catch (e) {}
+      }
+    }, 600);
+  };
 
   utterance.onstart = () => {
     isSpeaking = true;
     if (recognition) {
       try { recognition.abort(); } catch (e) {}
     }
+    if (micBtn) {
+      micBtn.classList.remove('listening');
+      micBtn.classList.add('speaking');
+      micBtn.style.opacity = '0.5';
+    }
+    if (voiceStatusText) {
+      voiceStatusText.textContent = '🔊 Panda speaking... (Microphone muted)';
+    }
   };
 
   utterance.onend = () => {
-    // Keep a 400ms buffer after speech finishes so room echo does not trigger the mic
-    setTimeout(() => {
-      isSpeaking = false;
-      if (recognition && !isRecognizing && !isMicManualDisabled) {
-        try { recognition.start(); } catch (e) {}
-      }
-    }, 400);
+    finishSpeaking();
   };
 
   utterance.onerror = (err) => {
     console.warn('SpeechSynthesis error:', err);
-    setTimeout(() => {
-      isSpeaking = false;
-      if (recognition && !isRecognizing && !isMicManualDisabled) {
-        try { recognition.start(); } catch (e) {}
-      }
-    }, 300);
+    finishSpeaking();
   };
 
   // Workaround for Chrome/Edge garbage-collection bug on long utterances
@@ -921,6 +930,7 @@ function handleSpokenCommand(transcript) {
     updateAgentResponseText(wakeReply);
     speakText(wakeReply);
     currentAgentMessageDiv = null;
+    return;
   }
 
   // If command includes wake word like "Hey Panda install chrome" or direct command

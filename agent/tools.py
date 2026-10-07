@@ -365,60 +365,106 @@ def close_process(process_name: str) -> str:
         return f"Error closing process '{process_name}': {str(e)}"
 
 def open_url_in_browser(url: str) -> str:
-    """Open any URL or search in the web browser (e.g. 'https://youtube.com', 'https://chatgpt.com', 'https://google.com') and bring the window directly to the front screen."""
+    """Open any URL or search in the user's web browser (e.g. 'https://youtube.com', 'https://chatgpt.com', 'https://google.com') directly in their already-opened browser window and bring it live to the front screen."""
     try:
         ensure_desktop_access()
         if not url.startswith("http://") and not url.startswith("https://"):
             url = "https://" + url
 
+        import ctypes
+        from ctypes import wintypes
+        import psutil
+        import pyautogui
         import win32gui
         import win32con
-        import pyautogui
+
         pyautogui.FAILSAFE = False
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
 
-        # 1. Check if Chrome or Edge window is already running and open
-        hwnds = []
-        def enum_cb(hwnd, _):
-            if win32gui.IsWindowVisible(hwnd):
-                title = win32gui.GetWindowText(hwnd)
-                if any(b in title.lower() for b in ["chrome", "edge", "youtube"]):
-                    hwnds.append(hwnd)
-        win32gui.EnumWindows(enum_cb, None)
+        # 1. Search for any visible top-level browser window (Chrome, Edge, Brave, Firefox, Opera)
+        found_browser_hwnds = []
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
 
-        if hwnds:
-            target_hwnd = hwnds[0]
-            bring_window_to_foreground("Chrome")
-            bring_window_to_foreground("Edge")
-            time.sleep(0.3)
-            # Open new tab directly in existing browser window
+        def enum_browser_cb(hwnd, lParam):
+            if user32.IsWindowVisible(hwnd):
+                length = user32.GetWindowTextLengthW(hwnd)
+                buff = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(hwnd, buff, length + 1)
+                title = buff.value.lower()
+                pid = wintypes.DWORD()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                try:
+                    pname = psutil.Process(pid.value).name().lower()
+                    if any(b in pname for b in ['chrome.exe', 'msedge.exe', 'brave.exe', 'firefox.exe', 'opera.exe']):
+                        # Ignore system helper windows like MSCTFIME UI or Default IME
+                        if buff.value and not any(ign in buff.value for ign in ['Default IME', 'MSCTFIME UI', 'Mojo']):
+                            found_browser_hwnds.append((hwnd, buff.value, pname))
+                except Exception:
+                    pass
+            return True
+
+        user32.EnumWindows(WNDENUMPROC(enum_browser_cb), 0)
+
+        if found_browser_hwnds:
+            target_hwnd, target_title, target_proc = found_browser_hwnds[0]
+
+            # Bring existing browser window forcefully to the front
+            try:
+                user32.keybd_event(0x12, 0, 0, 0)
+                user32.keybd_event(0x12, 0, 2, 0)
+                curr_tid = kernel32.GetCurrentThreadId()
+                fore_hwnd = user32.GetForegroundWindow()
+                fore_tid = user32.GetWindowThreadProcessId(fore_hwnd, None)
+                target_tid = user32.GetWindowThreadProcessId(target_hwnd, None)
+
+                user32.AttachThreadInput(curr_tid, target_tid, True)
+                if fore_tid:
+                    user32.AttachThreadInput(fore_tid, target_tid, True)
+
+                user32.ShowWindow(target_hwnd, win32con.SW_RESTORE)
+                user32.SetForegroundWindow(target_hwnd)
+                user32.BringWindowToTop(target_hwnd)
+
+                user32.AttachThreadInput(curr_tid, target_tid, False)
+                if fore_tid:
+                    user32.AttachThreadInput(fore_tid, target_tid, False)
+            except Exception:
+                win32gui.ShowWindow(target_hwnd, win32con.SW_RESTORE)
+                win32gui.SetForegroundWindow(target_hwnd)
+
+            time.sleep(0.4)
+            # Open new tab directly in the user's active browser window and navigate
             pyautogui.hotkey('ctrl', 't')
             time.sleep(0.3)
+            # Focus address bar, paste/type URL, and press Enter
             pyautogui.write(url, interval=0.01)
             time.sleep(0.1)
             pyautogui.press('enter')
-            return f"Successfully opened {url} in active browser on screen."
+            return f"Successfully opened {url} in your active browser '{target_title}' on screen."
 
-        # 2. If no browser window is open, launch Chrome directly
+        # 2. If no browser window is currently open, launch standard Chrome or Edge
         chrome_paths = [
             r"C:\Program Files\Google\Chrome\Application\chrome.exe",
             r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
             os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
         ]
-        chrome_exe = next((p for p in chrome_paths if os.path.exists(p)), None)
+        browser_exe = next((p for p in chrome_paths if os.path.exists(p)), None)
 
-        if chrome_exe:
-            subprocess.Popen([chrome_exe, url], shell=False)
+        if browser_exe:
+            subprocess.Popen([browser_exe, url], shell=False)
         else:
             try:
                 subprocess.Popen(f'start "" "{url}"', shell=True)
             except Exception:
+                import webbrowser
                 webbrowser.open_new(url)
 
         time.sleep(1.0)
         bring_window_to_foreground("Chrome")
-        bring_window_to_foreground("YouTube")
         bring_window_to_foreground("Edge")
-        bring_window_to_foreground("Browser")
+        bring_window_to_foreground("YouTube")
 
         return f"Successfully opened {url} live on screen in browser."
     except Exception as e:
