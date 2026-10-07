@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panda (প্যান্ডা) | Local Coding AI Agent</title>
-  <!-- Google Fonts: Inter, Noto Sans Bengali, JetBrains Mono -->
+  <title>Panda | Local Coding AI Agent</title>
+  <!-- Google Fonts: Inter, JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <!-- Markdown parser -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="stylesheet" href="/static/style.css">
@@ -16,7 +16,7 @@
   <!-- Header -->
   <header>
     <div class="brand">
-      <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle Sidebar (সাইডবার দেখান/লুকান)">
+      <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
         ☰
       </button>
       <div class="brand-icon">🐼</div>
@@ -39,11 +39,7 @@
         <span>Connecting...</span>
       </div>
       <div class="voice-controls-wrapper" style="display:flex; align-items:center; gap:6px;">
-        <label for="voice-select" style="font-size:0.8rem; color:var(--text-dim);" title="Select Voice">🗣️ Voice:</label>
-        <select id="voice-select" class="model-select" style="max-width:180px;" title="Choose speech voice">
-          <option value="auto">Auto (Bangla bn-BD)</option>
-        </select>
-        <button id="voice-mute-btn" class="voice-mute-btn" onclick="toggleVoiceMute()" title="Toggle voice response (অডিও উত্তর অন/অফ)">
+        <button id="voice-mute-btn" class="voice-mute-btn" onclick="toggleVoiceMute()" title="Toggle voice response">
           🔊 Voice: ON
         </button>
       </div>
@@ -61,7 +57,7 @@
         <div style="display:flex; gap:6px; align-items:center;">
           <button class="new-chat-btn" onclick="createNewChatSession()" title="New Chat">➕ New</button>
           <button class="clear-all-btn" onclick="clearAllConversations()" title="Clear All Chats">🗑️ Clear</button>
-          <button class="sidebar-close-btn" onclick="toggleSidebar()" title="Collapse Sidebar (সাইডবার বন্ধ করুন)">◀</button>
+          <button class="sidebar-close-btn" onclick="toggleSidebar()" title="Collapse Sidebar">◀</button>
         </div>
       </div>
       <div id="conversation-history-list" class="conversation-history-list">
@@ -80,16 +76,16 @@
 
         <div class="input-box-wrapper">
           <input type="file" id="file-input" style="display:none;" multiple accept="image/*,.pdf,.txt,.py,.js,.html,.css,.json,.md,.csv,.log">
-          <button id="attach-btn" class="attach-btn" type="button" title="Add Attachments (ছবি, ডকুমেন্ট বা ফাইল যুক্ত করুন)">
+          <button id="attach-btn" class="attach-btn" type="button" title="Add Attachments">
             📎
           </button>
-          <button id="mic-btn" class="mic-btn" onclick="toggleSpeechRecognition()" title="Voice Command (Speak in English or Hindi)">
+          <button id="mic-btn" class="mic-btn" onclick="toggleSpeechRecognition()" title="Voice Command (Click to toggle mic)">
             <span id="mic-icon">🎤</span>
           </button>
           <textarea
             id="user-input"
             class="chat-input"
-            placeholder="Type or speak (e.g. 'Hey Panda', 'File Explorer open karo', 'Install Chrome')..."
+            placeholder="Type or speak (e.g. 'Hey Panda', 'Open YouTube', 'Launch VS Code')..."
             rows="1"
           ></textarea>
           <button id="send-btn" class="send-btn">
@@ -97,7 +93,7 @@
           </button>
         </div>
         <div class="input-hints">
-          <span id="voice-status-text">🎤 Click microphone to speak (English or Hindi)</span>
+          <span id="voice-status-text">🎙️ Listening... Say "Hey Panda" or click mic</span>
           <a class="reset-chat-link" onclick="resetChat()">Clear Session</a>
         </div>
       </div>

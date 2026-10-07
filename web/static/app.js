@@ -52,23 +52,22 @@ function populateVoiceList() {
   if (!availableVoices || availableVoices.length === 0) return;
 
   const currentSelection = voiceSelect.value || localStorage.getItem('panda_preferred_voice') || 'auto';
-  voiceSelect.innerHTML = '<option value="auto">Auto (Bangla bn-BD Priority)</option>';
+  voiceSelect.innerHTML = '<option value="auto">Auto (English en-US Priority)</option>';
 
-  // Sort: Bangla & Hindi first, then other languages
+  // Sort: English first, then others
   const sortedVoices = [...availableVoices].sort((a, b) => {
-    const aIsBn = a.lang.toLowerCase().includes('bn');
-    const bIsBn = b.lang.toLowerCase().includes('bn');
-    if (aIsBn && !bIsBn) return -1;
-    if (!aIsBn && bIsBn) return 1;
+    const aIsEn = a.lang.toLowerCase().includes('en');
+    const bIsEn = b.lang.toLowerCase().includes('en');
+    if (aIsEn && !bIsEn) return -1;
+    if (!aIsEn && bIsEn) return 1;
     return a.name.localeCompare(b.name);
   });
 
   sortedVoices.forEach((voice) => {
     const opt = document.createElement('option');
     opt.value = voice.name;
-    const isBn = voice.lang.toLowerCase().includes('bn') ? ' 🇧🇩 [Bangla]' : '';
-    const isHi = voice.lang.toLowerCase().includes('hi') ? ' 🇮🇳 [Hindi]' : '';
-    opt.textContent = `${voice.name} (${voice.lang})${isBn}${isHi}`;
+    const isEn = voice.lang.toLowerCase().includes('en') ? ' 🇺🇸 [English]' : '';
+    opt.textContent = `${voice.name} (${voice.lang})${isEn}`;
     if (voice.name === currentSelection) {
       opt.selected = true;
     }
@@ -520,7 +519,7 @@ function renderConversationHistory() {
   conversationHistoryList.innerHTML = '';
 
   if (sessions.length === 0) {
-    conversationHistoryList.innerHTML = '<div style="padding:12px 8px; color:var(--text-dim); font-size:0.8rem; text-align:center;">কোনো পূর্ববর্তী রেকর্ড নেই</div>';
+    conversationHistoryList.innerHTML = '<div style="padding:12px 8px; color:var(--text-dim); font-size:0.8rem; text-align:center;">No previous sessions</div>';
     return;
   }
 
@@ -530,12 +529,12 @@ function renderConversationHistory() {
     
     item.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
-        <div class="history-title" style="flex:1;">${escapeHtml(session.title || 'নতুন কথোপকথন')}</div>
-        <button class="delete-history-btn" title="মুছে ফেলুন (Delete)" onclick="event.stopPropagation(); deleteSession('${session.id}')">🗑️</button>
+        <div class="history-title" style="flex:1;">${escapeHtml(session.title || 'New Session')}</div>
+        <button class="delete-history-btn" title="Delete session" onclick="event.stopPropagation(); deleteSession('${session.id}')">🗑️</button>
       </div>
       <div class="history-meta">
         <span>${session.time || ''}</span>
-        <span>${session.messages ? session.messages.length + ' টি বার্তা' : ''}</span>
+        <span>${session.messages ? session.messages.length + ' messages' : ''}</span>
       </div>
     `;
 
@@ -545,7 +544,7 @@ function renderConversationHistory() {
 }
 
 function deleteSession(id) {
-  if (confirm('এই কথোপকথন রেকর্ডটি মুছে ফেলতে চান?')) {
+  if (confirm('Delete this conversation session?')) {
     sessions = sessions.filter(s => s.id !== id);
     localStorage.setItem('panda_sessions', JSON.stringify(sessions));
     if (currentSessionId === id) {
@@ -557,7 +556,7 @@ function deleteSession(id) {
 }
 
 function clearAllConversations() {
-  if (confirm('সবগুলো কথোপকথন রেকর্ড মুছে ফেলতে চান?')) {
+  if (confirm('Clear all conversation history?')) {
     sessions = [];
     localStorage.removeItem('panda_sessions');
     createNewChatSession();
@@ -644,22 +643,20 @@ function speakText(text) {
     try { recognition.stop(); } catch (e) {}
   }
 
-  // Strip markdown symbols, asterisks, hashtags and code blocks
+  // Clean markdown and emojis for speech
   let cleanText = text
-    .replace(/```[\s\S]*?```/g, 'কোড তৈরি সম্পন্ন হয়েছে।')
+    .replace(/```[\s\S]*?```/g, 'Code block generated.')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/[*_#~>\[\]\(\)]/g, '')
-    // Strip all emojis and symbol characters completely so TTS never pronounces emoji names
     .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{1F004}\u{1F0CF}\u{1F170}-\u{1F251}]/gu, '')
     .trim();
 
   // If text is very long, summarize for spoken audio
   if (cleanText.length > 250) {
-    cleanText = cleanText.substring(0, 250) + '... বিস্তারিত স্ক্রিনে দেখানো হলো।';
+    cleanText = cleanText.substring(0, 250) + '... Full details shown on screen.';
   }
 
   try {
-    // Resume audio context/speech synthesis if paused by browser autoplay policy
     if (window.speechSynthesis.paused) {
       window.speechSynthesis.resume();
     }
@@ -670,11 +667,10 @@ function speakText(text) {
   utterance.rate = 1.0;
   utterance.pitch = 1.0;
   utterance.volume = 1.0;
+  utterance.lang = 'en-US';
 
   // Pick appropriate voice
   let voices = window.speechSynthesis.getVoices();
-  const isBanglaText = /[\u0980-\u09FF]/.test(cleanText);
-  const isHindiText = /[\u0900-\u097F]/.test(cleanText);
   let chosenVoice = null;
 
   // 1. Check if user selected a specific voice from dropdown
@@ -686,24 +682,11 @@ function speakText(text) {
     }
   }
 
-  // 2. If auto or not found, detect by language
+  // 2. Default to natural English voice
   if (!chosenVoice) {
-    if (isBanglaText) {
-      utterance.lang = 'bn-BD';
-      chosenVoice = voices.find(v => v.lang === 'bn-BD' || v.lang.toLowerCase().includes('bn-bd')) ||
-                    voices.find(v => v.lang.toLowerCase().includes('bn-in') || v.lang.toLowerCase().includes('bn')) ||
-                    voices.find(v => v.lang.toLowerCase().includes('in'));
-    } else if (isHindiText) {
-      utterance.lang = 'hi-IN';
-      chosenVoice = voices.find(v => v.lang.includes('hi') || v.lang.includes('HI'));
-    } else {
-      utterance.lang = 'en-US';
-    }
-  }
-
-  // If still not matched, fallback to system default voice
-  if (!chosenVoice) {
-    chosenVoice = voices.find(v => v.lang.includes('en') || v.lang.includes('US') || v.lang.includes('GB')) || voices[0];
+    chosenVoice = voices.find(v => v.lang === 'en-US' || v.lang === 'en_US') ||
+                  voices.find(v => v.lang.toLowerCase().includes('en-gb') || v.lang.toLowerCase().includes('en')) ||
+                  voices[0];
   }
   if (chosenVoice) {
     utterance.voice = chosenVoice;
@@ -775,17 +758,16 @@ function initSpeechRecognition() {
   recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.lang = 'bn-BD'; // Primary Bengali, captures English & Hindi phrases seamlessly
+  recognition.lang = 'en-US'; // English primary recognition
 
   recognition.onstart = () => {
     isRecognizing = true;
     micBtn.classList.add('listening');
-    voiceStatusText.textContent = '🎙️ সর্বদা শুনছি... বলুন "Hey Panda" বা যেকোনো নির্দেশ!';
+    voiceStatusText.textContent = '🎙️ Listening... Say "Hey Panda" or any command!';
   };
 
   recognition.onend = () => {
     isRecognizing = false;
-    // Always-on voice recognition: auto-restart immediately unless user manually disabled mic or agent is speaking
     if (!isSpeaking && !isMicManualDisabled) {
       setTimeout(() => {
         if (!isRecognizing && !isSpeaking && !isMicManualDisabled) {
@@ -796,7 +778,7 @@ function initSpeechRecognition() {
       }, 300);
     } else if (isSpeaking) {
       micBtn.classList.remove('listening');
-      voiceStatusText.textContent = '🔊 Panda কথা বলছে... (মাইক্রোফোন মিউট)';
+      voiceStatusText.textContent = '🔊 Panda speaking... (Microphone muted)';
     }
   };
 
@@ -806,7 +788,6 @@ function initSpeechRecognition() {
     micBtn.classList.remove('listening');
     if (isMicManualDisabled) return;
 
-    // For no-speech or network glitches, auto-restart silently to keep voice always-on
     if (event.error === 'no-speech' || event.error === 'audio-capture' || event.error === 'network') {
       setTimeout(() => {
         if (!isRecognizing && !isSpeaking && !isMicManualDisabled) {
@@ -814,7 +795,7 @@ function initSpeechRecognition() {
         }
       }, 1000);
     } else {
-      voiceStatusText.textContent = `🎤 অবস্থা: ${event.error} (স্বয়ংক্রিয়ভাবে পুনরায় চালু হচ্ছে...)`;
+      voiceStatusText.textContent = `🎤 Status: ${event.error} (Restarting...)`;
       setTimeout(() => {
         if (!isRecognizing && !isSpeaking && !isMicManualDisabled) {
           try { recognition.start(); } catch (e) {}
@@ -824,7 +805,6 @@ function initSpeechRecognition() {
   };
 
   recognition.onresult = (event) => {
-    // If agent is currently speaking, completely ignore and discard all microphone audio
     if (isSpeaking) {
       clearTimeout(silenceTimer);
       return;
@@ -840,7 +820,6 @@ function initSpeechRecognition() {
       }
     }
 
-    // Double check that agent didn't start speaking in this exact instant
     if (isSpeaking) {
       clearTimeout(silenceTimer);
       return;
@@ -848,19 +827,15 @@ function initSpeechRecognition() {
 
     const currentSpeech = (finalTranscript + interimTranscript).trim();
     if (currentSpeech) {
-      voiceStatusText.textContent = `🗣️ শুনছি: "${currentSpeech}"`;
+      voiceStatusText.textContent = `🗣️ Hearing: "${currentSpeech}"`;
       userInput.value = currentSpeech;
 
-      // Instant wake detection if user just said "hello panda" / "hey panda"
-      const quickClean = currentSpeech.toLowerCase().replace(/[^a-zA-Z\u0980-\u09FF\s]/g, '').trim();
+      const quickClean = currentSpeech.toLowerCase().replace(/[^a-zA-Z\s]/g, '').trim();
       const isInstantWake = 
         quickClean === 'hello panda' || 
         quickClean === 'hey panda' || 
         quickClean === 'hi panda' ||
-        quickClean === 'হ্যালো প্যান্ডা' || 
-        quickClean === 'হ্যালো পান্ডা' ||
-        quickClean === 'হেই প্যান্ডা' ||
-        quickClean === 'হে পাণ্ডা';
+        quickClean === 'panda';
 
       if (isInstantWake) {
         clearTimeout(silenceTimer);
@@ -868,13 +843,12 @@ function initSpeechRecognition() {
         return;
       }
 
-      // Reset and start silence threshold timer to execute standard commands
       clearTimeout(silenceTimer);
       silenceTimer = setTimeout(() => {
-        if (isSpeaking) return; // Prevent executing if AI spoke in between
+        if (isSpeaking) return;
         const captured = userInput.value.trim();
         if (captured) {
-          voiceStatusText.textContent = `⏳ নির্দেশ কার্যকর করা হচ্ছে: "${captured}"`;
+          voiceStatusText.textContent = `⏳ Executing command: "${captured}"`;
           handleSpokenCommand(captured);
         }
       }, SILENCE_TIMEOUT_MS);
@@ -892,16 +866,14 @@ function toggleSpeechRecognition() {
   clearTimeout(silenceTimer);
 
   if (isMicManualDisabled) {
-    // User manually turned microphone OFF
     try { recognition.abort(); } catch (e) {}
     isRecognizing = false;
     micBtn.classList.remove('listening');
     micBtn.style.opacity = '0.5';
-    voiceStatusText.textContent = '🔇 ভয়েস মোড বন্ধ রয়েছে (মাইকে ক্লিক করে চালু করুন)';
+    voiceStatusText.textContent = '🔇 Voice Mode OFF (Click mic to enable)';
   } else {
-    // User manually turned microphone ON
     micBtn.style.opacity = '1';
-    voiceStatusText.textContent = '🎙️ ভয়েস মোড চালু করা হলো...';
+    voiceStatusText.textContent = '🎙️ Voice Mode Enabled...';
     if (!isSpeaking) {
       try { recognition.start(); } catch (e) {}
     }
@@ -912,27 +884,16 @@ function handleSpokenCommand(transcript) {
   clearTimeout(silenceTimer);
   const lower = transcript.toLowerCase().trim();
 
-  // Wake-word only detection: e.g. "hello panda", "hey panda", "হেই প্যান্ডা", "হ্যালো প্যান্ডা"
-  const cleanSpeech = lower.replace(/[^a-zA-Z\u0980-\u09FF\s]/g, '').trim();
+  const cleanSpeech = lower.replace(/[^a-zA-Z\s]/g, '').trim();
   const isWakeWordOnly = 
     cleanSpeech === 'hello panda' ||
     cleanSpeech === 'hey panda' || 
     cleanSpeech === 'hi panda' ||
     cleanSpeech === 'panda' || 
     cleanSpeech === 'hey' ||
-    cleanSpeech === 'hello' ||
-    cleanSpeech === 'হেই প্যান্ডা' ||
-    cleanSpeech === 'হ্যালো প্যান্ডা' ||
-    cleanSpeech === 'হ্যালো পান্ডা' ||
-    cleanSpeech === 'প্যান্ডা' || 
-    cleanSpeech === 'পান্ডা' ||
-    cleanSpeech === 'হে পাণ্ডা' ||
-    cleanSpeech === 'हे पांडा' ||
-    cleanSpeech === 'पांडा' || 
-    cleanSpeech === 'नमस्ते पांडा';
+    cleanSpeech === 'hello';
 
   if (isWakeWordOnly) {
-    // If voice reply was muted or mic was manually disabled, automatically turn it ON!
     if (isVoiceMuted) {
       isVoiceMuted = false;
       if (voiceMuteBtn) {
@@ -948,15 +909,18 @@ function handleSpokenCommand(transcript) {
       }
     }
 
-    const isBangla = /[\u0980-\u09FF]/.test(transcript) || cleanSpeech.includes('প্যান্ডা') || cleanSpeech.includes('পান্ডা');
-    const isHindi = /[\u0900-\u097F]/.test(transcript);
+    const wakeReply = 'Yes Boss! How can I assist you right now?';
+
+    appendUserMessage(transcript);
+    userInput.value = '';
     
-    let wakeReply = 'Yes Boss! How can I assist you right now?';
-    if (isBangla) {
-      wakeReply = 'জী বস! বলুন, আমি আপনার জন্য কী করতে পারি?';
-    } else if (isHindi) {
-      wakeReply = 'जी बॉस! बताइए, मैं आपके लिए क्या कर सकता हूँ?';
-    }
+    // Add agent response
+    prepareAgentResponseContainer();
+    updateAgentResponseText(wakeReply);
+    speakText(wakeReply);
+    currentAgentMessageDiv = null;
+    return;
+  }
 
     appendUserMessage(transcript);
     userInput.value = '';
